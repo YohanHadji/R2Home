@@ -11,45 +11,43 @@
 
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
+#define i_want_to_fly false
+#define autopilot_mode 1 
+#define drop true
+#define record_home false 
+#define dep_alt 100 
+#define vup 3 
+#define vdown 4
 
-boolean drop = true; 
+#define bcritical 3.7
+#define blow 3.8
+#define no_batt 4.0 
 
-boolean record_home = false; 
+#define servo_man_min 1100 
+#define servo_man_max 1900 
 
-int autopilot_mode = 0; 
+#define servo_auto_min 1100 
+#define servo_auto_max 1900
 
-float dep_altitude = 100; 
-float vup = 3; 
-float vdown = -4;
+#define servo_left_min 2000 
+#define servo_left_start 1300
+#define servo_left_max 1000
 
+#define servo_right_min 2000 
+#define servo_right_start 1300
+#define servo_right_max 1000
+
+#define gliding_timer 2500
+
+int dep_altitude = dep_alt; 
 int cog_count = 2;  
-
-float bcritical = 3.7;
-float blow = 3.8;
-float no_batt = 4; 
-
-int servo_man_min = 1100; 
-int servo_man_max = 1900; 
-
-int servo_auto_min = 1285; 
-int servo_auto_max = 1715; 
-
-float gliding_timer = 2500;
-
-int time_up = 0; 
-int time_down = 1000; 
-
-int cmd_right = 2000; 
-int cmd_left = 1000; 
-
-float Kt = 2; 
-
-int rate_yaw = 1; 
-
 
 // NAV PIDs // 
 float NKp = 0.8; 
 float NKd = 0.15; 
+
+double long sim_cmd_time = 0; 
+float sim_cmd = 0; 
 
 // ----------------------------------- GLOBAL VARIABLES ----------------------------------- // 
 
@@ -173,86 +171,15 @@ bool gps_ok = false;
 int packet_count = 0; 
 int reboot_state = 0; 
 
-// STRING // 
-char sdnamebuff[20];
-char lat_A_text[30];
-char lon_A_text[30];
-char alt_gps_text[30];
-char cog_text[30]; 
-char speed_text[30];
-char sat_text[30];
-char fix_type_text[10];
-char hdop_text[10];
-char pos_age_text[10]; 
-char count_text[10]; 
-char time_text[10];
-
-char alt_baro_text[30];
-char vspeed_text[30];
-
-char merged_alt_text[30];
-char baro_weight_text[30];
-char gps_weight_text[30]; 
-char setPoint_Home_text[30]; 
-char lat_B_text[30];
-char lon_B_text[30];
-char errHome_text[30]; 
-char raterror_text[30]; 
-
-char a_text[10]; 
-char b_text[10]; 
-char c_text[10]; 
-char d_text[10]; 
-char e_text[10]; 
-char f_text[10]; 
-char g_text[10]; 
-
-char deploy_text[10]; 
-char left_text[10]; 
-char right_text[10]; 
-char esc_text[10]; 
-
-char gps_ok_text[10];
-char cog_ok_text[10];    
-char failSafe_text[10]; 
-char baro_stab_text[10]; 
-char gps_stab_text[10]; 
-char deployed_text[10]; 
-char flight_mode_text[10]; 
-char vbatt_text[10]; 
-char looptime_text[10]; 
-char packet_count_text[10]; 
-char initialised_text[10]; 
-char wing_opened_text[10]; 
-char next_cog_text[10]; 
-char cmd_mult_text[10]; 
-
+// STRING //
+char sdnamebuff[20]; 
 char mainSD[240];
-char mainTLM[250]; 
-
-char mintext[120];
-char gps_text[120]; 
-char baro_text[120];
-char rc_text[120]; 
-char servo_text[120]; 
-char status_text[120]; 
-char alt_text[120]; 
-char nav_text[120]; 
-
-char date_time[80];
-
-char date_year[10]; 
-char date_month[10]; 
-char date_day[10]; 
-char time_hour[10]; 
-char time_minute[10];
-char time_seconde[10];
+char mainTLM[250];   
 
 int time_number = 0; 
 boolean flight_rebooted = false; 
 
 // TIMERS // 
-
 unsigned long baroA = 0; 
 unsigned long baroB = 0; 
 unsigned long tstab = 0; 
@@ -289,9 +216,6 @@ void setup() {
   pinMode(cam, OUTPUT);
   pinMode(sw, INPUT); 
   digitalWrite(cam, LOW); 
-
-  //autopilot_mode = digitalRead(sw); 
-  //Serial.println(autopilot_mode); 
   
   Serial.begin(115200);
   Serial5.begin(57600); 
@@ -357,6 +281,8 @@ void setup() {
 void loop() {
   
   tloop = micros(); 
+
+  sim(); 
   
   getdata();
   datacmpt(); 
@@ -455,9 +381,6 @@ void datacmpt() {
    
   if ((gps_ok == true) and (cog_ok == true)) { 
    
-    switch (autopilot_mode) { 
-
-    case 0: 
       if (new_cog == true) {
         
         raterror = getangle((last_errHome+180),(errHome+180))*5; raterror = rs.reading(raterror); 
@@ -477,44 +400,19 @@ void datacmpt() {
         new_cog = false;
         last_errHome = errHome; 
         prev_cog_b = gps.course.deg(); 
-        
-        steer_auto = map(cmdHome, -180, +180, 1050, 1950); 
+
+        steer_auto = map(cmdHome, -180, +180, 1000, 2000); 
         steer_auto = constrain(steer_auto, servo_auto_min, servo_auto_max);  
-        
-    }
-    break; 
-
-    case 1:  
-      time_up = map(abs(errHome), 0, 180, 200, 600);
-      if ((millis()-tup)>=time_down) {
-       tup = millis();  
-       if (errHome > 0) { steer_auto = cmd_right; }
-       else { steer_auto = cmd_left; } 
-      }
-      if ((millis()-tup)>=time_up) { steer_auto = 1500; }
-      if (abs(errHome)<5) {  steer_auto = 1500; } 
-    break; 
-
-    case 2:
-    if (new_cog == true) {
-    raterror = getangle((last_errHome+180),(errHome+180))*5; 
-    float setPoint_rate = (errHome*rate_yaw);
-    float errRate = (setPoint_rate - raterror);
-    cmdHome = cmdHome + (errRate/10) ;
-    if (cmdHome > 2000) { cmdHome = 2000; } 
-    if (cmdHome < 1000) { cmdHome = 1000; } 
-    last_errHome = errHome; 
-
-    steer_auto = map(cmdHome, -180, +180, 1000, 2000); 
-    steer_auto = constrain(steer_auto, servo_auto_min, servo_auto_max);  
-    new_cog = false;
-    }
-    break;   
-        
+     
+    }    
   }
- }
+  
+ else { steer_auto = 1500; }
 
- else { steer_auto = 1500; } 
+ if (i_want_to_fly == true) { 
+  flight_mode = 5; 
+  steer_auto = map(sim_cmd, -180, +180, 1000, 2000); 
+ }
   
    
 // -------------------- Vertical Speed -------------------- //
@@ -572,6 +470,77 @@ void datacmpt() {
   }   
 
 // -------------------------- String -------------------------- //
+
+  char lat_A_text[30];
+  char lon_A_text[30];
+  char alt_gps_text[30];
+  char cog_text[30]; 
+  char speed_text[30];
+  char sat_text[30];
+  char fix_type_text[10];
+  char hdop_text[10];
+  char pos_age_text[10]; 
+  char count_text[10]; 
+  char time_text[10];
+
+  char alt_baro_text[30];
+  char vspeed_text[30];
+
+  char merged_alt_text[30];
+  char baro_weight_text[30];
+  char gps_weight_text[30]; 
+  char setPoint_Home_text[30]; 
+  char lat_B_text[30];
+  char lon_B_text[30];
+  char errHome_text[30]; 
+  char raterror_text[30]; 
+
+  char a_text[10]; 
+  char b_text[10]; 
+  char c_text[10]; 
+  char d_text[10]; 
+  char e_text[10]; 
+  char f_text[10]; 
+  char g_text[10]; 
+  
+  char deploy_text[10]; 
+  char left_text[10]; 
+  char right_text[10]; 
+  char esc_text[10]; 
+  
+  char gps_ok_text[10];
+  char cog_ok_text[10];    
+  char failSafe_text[10]; 
+  char baro_stab_text[10]; 
+  char gps_stab_text[10]; 
+  char deployed_text[10]; 
+  char flight_mode_text[10]; 
+  char vbatt_text[10]; 
+  char looptime_text[10]; 
+  char packet_count_text[10]; 
+  char initialised_text[10]; 
+  char wing_opened_text[10]; 
+  char next_cog_text[10]; 
+  char cmd_mult_text[10]; 
+  
+  char mintext[120];
+  char gps_text[120]; 
+  char baro_text[120];
+  char rc_text[120]; 
+  char servo_text[120]; 
+  char status_text[120]; 
+  char alt_text[120]; 
+  char nav_text[120]; 
+  
+  char date_time[80];
+  
+  char date_year[10]; 
+  char date_month[10]; 
+  char date_day[10]; 
+  char time_hour[10]; 
+  char time_minute[10];
+  char time_seconde[10];
+
 
   dtostrf(gps.date.year(), 2, 0, date_year);
   dtostrf(gps.date.month(), 1, 0, date_month);
@@ -941,6 +910,8 @@ void flight_gliding_auto() {
   if (failSafe == false) {flight_mode = 6;}  
   if (vspeed < -6) { spiral = true; } 
   if (vspeed > -5) { spiral = false; } 
+
+  if (i_want_to_fly == true) { spiral = false; flight_mode = 5; } 
 }
 
 //------------------- 6 -------------------//
@@ -988,15 +959,37 @@ void applycmd()  {
     case 8: 
       servo_left = steer_man; 
       servo_right = steer_man; 
-    break; 
+    break;
 
     case 9:
     case 10: 
     case 5: 
-      servo_left = steer_auto; 
-      servo_right = steer_auto;  
-    break;
+    
+      if (autopilot_mode == 0) { 
+        servo_left = steer_auto; 
+        servo_right = 3000-steer_auto; 
+      }
       
+      else {
+        
+        if (steer_auto < 1450) {
+         servo_left = map(steer_auto, 1000, 1500, 2000, servo_left_start);
+         servo_right = servo_right_max;
+        }
+           
+        else if (steer_auto > 1550) { 
+         servo_right = map(steer_auto, 2000, 1500, 2000, servo_right_start);
+         servo_left = servo_left_max; 
+        }
+        
+        else if ((steer_auto>1450) and (steer_auto<1550)) { 
+          servo_left = servo_left_max; 
+          servo_right = servo_right_max; 
+        }
+        
+      } 
+    break;
+  
     case 2: 
     case 3: 
     case 4: 
@@ -1005,7 +998,6 @@ void applycmd()  {
     break; 
     
   }
-
 // -------------------------- Deployment Servo and ESC -------------------------- //
 
   switch(flight_mode) { 
@@ -1054,8 +1046,8 @@ if (drop == true) {
     if ((millis()-tpwm)>=(1000/a)) { 
     
     tpwm = millis(); 
-    left.write(map(servo_left,1000,2000,0,180));
-    right.write(map(servo_right,1000,2000,0,180)); 
+    left.write(map(servo_left,1000,2000,5,175));
+    right.write(map(servo_right,1000,2000,5,175)); 
     deploy.write(map(servo_deploy,1000,2000,0,180));
     
   }
@@ -1066,8 +1058,8 @@ else {
   if ((millis()-tpwm)>=(1000/a)) { 
     
     tpwm = millis(); 
-    left.write(map(servo_left,1000,2000,0,180));
-    right.write(map(servo_right,1000,2000,0,180)); 
+    left.write(map(servo_left,1000,2000,5,175));
+    right.write(map(servo_right,1000,2000,5,175)); 
     esc.write(map(servo_esc,1000,2000,0,180));
     
   }
@@ -1273,4 +1265,10 @@ void newfile() {
         EEPROM.put(90, time_number);
     }
   }
+}
+
+void sim() { 
+  sim_cmd_time = (millis()*(PI/4000));
+  sim_cmd = sin(sim_cmd_time); 
+  sim_cmd = map(sim_cmd, -1, 1, -180, 180); 
 }
