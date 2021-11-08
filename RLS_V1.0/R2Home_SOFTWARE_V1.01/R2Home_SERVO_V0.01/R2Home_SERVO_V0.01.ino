@@ -4,15 +4,14 @@
 movingAvg st(5); 
 Servo steer;
 
+#define feedback_pin 2
+#define cmd_pin 10
+
 float parallax_steer = 1500; 
-
-int feedback_pin = 2;
-int cmd_pin = 10;
-
 float feedback_value = 0;
 
-float Kp = 0.8;
-float Kd = 0.03;
+const float Kp = 0.8;
+const float Kd = 0.03;
 float cumerror = 0; 
 float lasterror = 0;  
 
