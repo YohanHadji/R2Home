@@ -49,6 +49,7 @@ if ((millis()-tread)>=(1000/a)) {
   tread = millis(); 
 
   parallax_steer = inputCmd.getPulse();
+  parallax_steer = constrain(parallax_steer, 1050, 1950); 
   parallax_steer = map(parallax_steer,1000, 2000, 1050, 1950);   
 
   Serial.print(parallax_steer); Serial.print(","); Serial.print(feedback_value); Serial.print(","); Serial.print(error);  Serial.print(",");  Serial.println(PIDsum);  
@@ -72,6 +73,8 @@ void updatecmd(int a) {
       raterror = (error-lasterror);
       PIDsum = (Kp*error)+(Kd*raterror);  
       cmd = 1500 + PIDsum; 
+      if (cmd >1500) {cmd = cmd+20;}
+      if (cmd <1500) {cmd = cmd-20;}
 
       constrain(cmd, 1000, 2000); 
  
