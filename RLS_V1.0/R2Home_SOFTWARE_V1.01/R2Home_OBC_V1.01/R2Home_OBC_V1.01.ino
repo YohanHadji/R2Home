@@ -12,12 +12,14 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly false
-#define autopilot_mode 1 
+#define autopilot_mode 1
 #define drop true
 #define record_home false 
 #define dep_alt 100 
-#define vup 3 
-#define vdown 4
+#define vup 1.5 
+#define vdown 2
+
+#define gps_port Serial7
 
 #define bcritical 3.7
 #define blow 3.8
@@ -1170,29 +1172,29 @@ void dateTime(uint16_t* date, uint16_t* time){
 void gpset(int a, int b, int c, int d, int e){
   
 if (a == 9600) {
-    Serial7.begin(9600); 
+    gps_port.begin(9600); 
     delay(100); 
     byte packet1[] = {0xB5, 0x62, 0x06, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0xC0, 0x08, 0x00, 0x00, 0x80, 0x25, 0x00, 0x00, 0x07, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0x92, 0xB5};
     sendPacket(packet1, sizeof(packet1));
   }
     
 if (a == 57600) { 
-    Serial7.begin(9600); 
+    gps_port.begin(9600); 
     delay(100);
     byte packet2[] = {0xB5, 0x62, 0x06, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0xC0, 0x08, 0x00, 0x00, 0x00, 0xE1, 0x00, 0x00, 0x07, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0xCE, 0xC9};
     sendPacket(packet2, sizeof(packet2));
-    Serial7.end(); 
-    Serial7.begin(57600); 
+    gps_port.end(); 
+    gps_port.begin(57600); 
     delay(100);
   }
 
 if (a == 115200) { 
-    Serial7.begin(9600); 
+    gps_port.begin(9600); 
     delay(100);
     byte packet3[] = {0xB5, 0x62, 0x06, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0xC0, 0x08, 0x00, 0x00, 0x00, 0xC2, 0x01, 0x00, 0x07, 0x00, 0x03, 0x00, 0x00, 0x00, 0x00, 0x00, 0xB0, 0x7E};
     sendPacket(packet3, sizeof(packet3)); 
-    Serial7.end(); 
-    Serial7.begin(115200);
+    gps_port.end(); 
+    gps_port.begin(115200);
     delay(100);
   }
 
@@ -1243,12 +1245,12 @@ if (e == 1) {
     sendPacket(packet11, sizeof(packet11));
   }
 
-  Serial7.addMemoryForRead(serial2bufferRead, sizeof(serial2bufferRead));
+  gps_port.addMemoryForRead(serial2bufferRead, sizeof(serial2bufferRead));
    
 }
 
 void sendPacket(byte *packet, byte len){
-    for (byte i = 0; i < len; i++) { Serial7.write(packet[i]); }
+    for (byte i = 0; i < len; i++) { gps_port.write(packet[i]); }
 }
 
 void newfile() { 
