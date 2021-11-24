@@ -12,6 +12,7 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly false
+#define no_init false 
 #define autopilot_mode 1
 #define drop true
 #define record_home false 
@@ -19,10 +20,12 @@
 #define vup 1.5 
 #define vdown 2
 
+#define time_out 300
+
 #define gps_port Serial7
 
-#define bcritical 3.7
-#define blow 3.8
+#define bcritical 3.4
+#define blow 3.5
 #define no_batt 4.0 
 
 #define servo_man_min 1100 
@@ -459,6 +462,11 @@ void datacmpt() {
 
     if (abs(prev_gps-gps.altitude.meters())<1 and (gps.altitude.meters() != 0)) { gps_count = (gps_count + 1); }
     else { gps_count = 0; } 
+
+    if (gps_count >= 10) { gps_stab = true; } 
+    else if(millis()<(time_out*1000)) { gps_stab = false; } 
+    else { gps_stab = true; } 
+    
     
     if (vspeed_count >= 10) { baro_stab = true; }
     else { baro_stab = false; }
@@ -789,9 +797,9 @@ void flight_state() {
 
 void flight_init() { 
 
- if (reboot_state == 0) { 
+ if (reboot_state !=1) { 
   
-  if ((gps.satellites.value() >= 6) and (gps_ok == true) and (gps_stab == true) and (millis()>5000)) {
+  if (((gps.satellites.value() >= 6) and (gps_ok == true) and (gps_stab == true) and (millis()>5000)) or (no_init == true)) {
    
     EasyBuzzer.beep(3000,100,50,10,500,1);
     lat_B = gps.location.lat();
@@ -855,7 +863,7 @@ void flight_init() {
     sprintf(namebuff, "%s.txt", sdnamebuff);
 
     reboot_state = 0; 
-    EEPROM.write(0, 0); 
+    EEPROM.put(0, 0); 
       
   }
  }
@@ -875,7 +883,7 @@ void ready_steady() {
    
   if (vspeed>vup)    { flight_mode = 2; EasyBuzzer.beep(1000,100,50,2,500,1); strip.setBrightness(75);  }
   if (vspeed<vdown)  { flight_mode = 3; EasyBuzzer.beep(3000,100,50,3,500,1); strip.setBrightness(100); } 
-  if (atof(fix_type.value()) < 2)  { flight_mode = 0; EasyBuzzer.beep(700,100,50,3,500,1);  strip.setBrightness(50);  }
+  if ((atof(fix_type.value()) < 2) and (no_init == false))  { flight_mode = 0; EasyBuzzer.beep(700,100,50,3,500,1);  strip.setBrightness(50);  }
  
  }
 } 
@@ -1261,6 +1269,7 @@ void newfile() {
     else { 
       SdFile::dateTimeCallback(dateTime);
       dataFile = SD.open(namebuff, FILE_WRITE);
+      delay(10); 
       if (dataFile) {  
         dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Looptime (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Next_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
         dataFile.close();
