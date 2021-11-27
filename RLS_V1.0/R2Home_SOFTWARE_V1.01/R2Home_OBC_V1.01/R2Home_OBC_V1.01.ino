@@ -1,6 +1,6 @@
 #include <TinyGPS++.h>
 #include <SD.h>
-#include "Adafruit_BMP280.h"
+#include <Adafruit_BMP280.h>
 #include <SBUS.h>
 #include <EasyBuzzer.h>
 #include <Watchdog.h>
@@ -12,7 +12,8 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly false
-#define no_init false 
+#define buzzer_turn true
+#define no_init false
 #define autopilot_mode 1
 #define drop true
 #define record_home false 
@@ -57,7 +58,7 @@ float sim_cmd = 0;
 // ----------------------------------- GLOBAL VARIABLES ----------------------------------- // 
 
 // BARO // 
-Adafruit_BMP280 bmp;
+Adafruit_BMP280 bmp(&Wire);
 float alt_baro = 0;
 float prev_alt = 0; 
 float vspeed = 0; 
@@ -200,6 +201,7 @@ unsigned long long tloop = 0;
 unsigned long long tgps = 0; 
 unsigned long long tup = 0; 
 unsigned long long tdown = 0; 
+unsigned long t_turn = 0; 
 
 unsigned long long reboot_time = 0; 
 
@@ -609,6 +611,8 @@ void datacmpt() {
   dtostrf(channels[6], 2, 0, g_text);
 
   snprintf(rc_text, 120, "%s,%s,%s,%s,%s,%s,%s", a_text, b_text, c_text, d_text, e_text, f_text, g_text);
+
+  Serial.println(rc_text); 
 
   if (drop == true) { 
     dtostrf(servo_left, 2, 0, left_text);
@@ -1083,6 +1087,22 @@ void userinter() {
 // -------------------------- Buzzer -------------------------- //
 
   EasyBuzzer.update();
+
+
+  if (buzzer_turn == true and flight_mode == 5) { 
+    
+    int tone_turn = map(steer_auto, 1000, 2000, 1000, 3000); 
+    double t_down    = abs(map(steer_auto, 1000, 2000, -9, 9))+1; 
+    t_down = (1/t_down)*500; 
+   
+
+    if ((millis()-t_turn)>t_down) { 
+      Serial.print("test"); 
+      t_turn = millis(); 
+      EasyBuzzer.singleBeep(tone_turn,10);
+    }
+    
+  }
   
 // -------------------------- Voltage monitoring -------------------------- //
 
