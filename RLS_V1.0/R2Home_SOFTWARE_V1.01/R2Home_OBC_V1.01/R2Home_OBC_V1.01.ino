@@ -11,15 +11,16 @@
 
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
-#define i_want_to_fly false
-#define buzzer_turn true
-#define no_init false
-#define autopilot_mode 1
-#define drop true
-#define record_home false 
-#define dep_alt 100 
-#define vup 1.5 
-#define vdown 2
+#define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
+#define buzzer_turn     true  // Buzzer sounds as function of the turn command 
+#define no_init         false // Skip init, for testing only purposes 
+#define pitch           true  // RC control with pitch and roll, or only roll
+#define autopilot_mode  1     // Control linear or with "hands up"
+#define drop            false  // R2Home's version, drop or motorised
+#define record_home     false // only record autopilot 
+#define dep_alt         100   // m above ground  
+#define vup             1.5   // m/s 
+#define vdown           2     // m/s
 
 #define time_out 300
 
@@ -131,7 +132,8 @@ float cmd_mult = 0;
 
 // RX // 
 SBUS rx(Serial1);
-movingAvg s_steer(25);
+movingAvg roll_steer(25);
+movingAvg pitch_steer(25);
 uint16_t channels[16];
 bool failSafe;
 bool lostFrame;
@@ -153,7 +155,8 @@ PWMServo left;
 PWMServo right; 
 PWMServo esc; 
 
-float steer_man = 1500; 
+float roll_man = 1500; 
+float pitch_man = 1500; 
 float steer_auto = 1500; 
  
 float servo_deploy = 2000;
@@ -236,7 +239,8 @@ void setup() {
   voltage.begin();
   vs.begin(); 
   al.begin(); 
-  s_steer.begin();
+  roll_steer.begin();
+  pitch_steer.begin();
   rs.begin(); 
   rc.begin();
   mult.begin();  
@@ -348,8 +352,10 @@ void getdata() {
   if ((channels[3])>=1500 or (channels[3])==0) { failSafe = true; }
   else { failSafe = false; } 
 
-  steer_man = map(s_steer.reading(channels[0]), 50, 1950, 1000, 2000);
-  steer_man = constrain(steer_man, servo_man_min, servo_man_max); 
+  roll_man  = map(roll_steer.reading(channels[0]), 50, 1950, 1000, 2000);
+  pitch_man = map(pitch_steer.reading(channels[1]), 50, 1950, 1000, 2000);
+  roll_man  = constrain(roll_man, servo_man_min, servo_man_max); 
+  pitch_man = constrain(pitch_man, servo_man_min, servo_man_max); 
 
 // -------------------------- Get Vbatt -------------------------- //
 
@@ -611,8 +617,6 @@ void datacmpt() {
   dtostrf(channels[6], 2, 0, g_text);
 
   snprintf(rc_text, 120, "%s,%s,%s,%s,%s,%s,%s", a_text, b_text, c_text, d_text, e_text, f_text, g_text);
-
-  Serial.println(rc_text); 
 
   if (drop == true) { 
     dtostrf(servo_left, 2, 0, left_text);
@@ -966,13 +970,38 @@ void applycmd()  {
     case 0: 
     case 1: 
     case 6: 
-      if (failSafe == false) { servo_left = steer_man; servo_right = steer_man; }
+      if (failSafe == false) { 
+        if (pitch == false) { 
+          servo_left = roll_man; servo_right = 3000-roll_man; 
+        }
+        else {
+          servo_left = roll_man; 
+          servo_right = 3000-roll_man; 
+          
+          servo_left  = servo_left+(pitch_man-1500); 
+          servo_right = servo_right+(pitch_man-1500); 
+          
+          servo_left = constrain(servo_left, servo_man_min, servo_man_max);
+          servo_right = constrain(servo_left, servo_man_min, servo_man_max);
+        }
+      }
       else { servo_left = 1500; servo_right = 1500; }  
     break; 
 
     case 8: 
-      servo_left = steer_man; 
-      servo_right = steer_man; 
+      if (pitch == false) { 
+        servo_left = roll_man; servo_right = 3000-roll_man; 
+      }
+      else {
+        servo_left = roll_man; 
+        servo_right = 3000-roll_man; 
+          
+        servo_left  = servo_left+(pitch_man-1500); 
+        servo_right = servo_right+(pitch_man-1500); 
+          
+        servo_left = constrain(servo_left, servo_man_min, servo_man_max);
+        servo_right = constrain(servo_left, servo_man_min, servo_man_max);
+      } 
     break;
 
     case 9:
