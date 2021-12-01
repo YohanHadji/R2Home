@@ -14,9 +14,9 @@
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
 #define buzzer_turn     true  // Buzzer sounds as function of the turn command 
 #define no_init         false // Skip init, for testing only purposes 
-#define pitch           true  // RC control with pitch and roll, or only roll
+#define rc_mode         2     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
-#define drop            false  // R2Home's version, drop or motorised
+#define drop            false // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         100   // m above ground  
 #define vup             1.5   // m/s 
@@ -30,7 +30,7 @@
 #define blow 3.5
 #define no_batt 4.0 
 
-#define servo_man_min 1100 
+#define servo_man_min 1100
 #define servo_man_max 1900 
 
 #define servo_auto_min 1100 
@@ -971,37 +971,56 @@ void applycmd()  {
     case 1: 
     case 6: 
       if (failSafe == false) { 
-        if (pitch == false) { 
-          servo_left = roll_man; servo_right = 3000-roll_man; 
-        }
-        else {
+        switch (rc_mode) {
+          
+          case 0: 
           servo_left = roll_man; 
           servo_right = 3000-roll_man; 
-          
+          break; 
+
+          case 1:
+          servo_left = roll_man; 
+          servo_right = 3000-roll_man; 
+   
           servo_left  = servo_left+(pitch_man-1500); 
           servo_right = servo_right+(pitch_man-1500); 
           
           servo_left = constrain(servo_left, servo_man_min, servo_man_max);
           servo_right = constrain(servo_left, servo_man_min, servo_man_max);
+          break; 
+
+          case 2: 
+          servo_left = roll_man; 
+          servo_right = pitch_man;
+          break; 
         }
       }
       else { servo_left = 1500; servo_right = 1500; }  
     break; 
 
     case 8: 
-      if (pitch == false) { 
-        servo_left = roll_man; servo_right = 3000-roll_man; 
-      }
-      else {
-        servo_left = roll_man; 
-        servo_right = 3000-roll_man; 
+      switch (rc_mode) {
+          case 0: 
+          servo_left = roll_man; 
+          servo_right = 3000-roll_man; 
+          break; 
+
+          case 1:
+          servo_left = roll_man; 
+          servo_right = 3000-roll_man; 
+   
+          servo_left  = servo_left+(pitch_man-1500); 
+          servo_right = servo_right+(pitch_man-1500); 
           
-        servo_left  = servo_left+(pitch_man-1500); 
-        servo_right = servo_right+(pitch_man-1500); 
-          
-        servo_left = constrain(servo_left, servo_man_min, servo_man_max);
-        servo_right = constrain(servo_left, servo_man_min, servo_man_max);
-      } 
+          servo_left = constrain(servo_left, servo_man_min, servo_man_max);
+          servo_right = constrain(servo_left, servo_man_min, servo_man_max);
+          break; 
+
+          case 2: 
+          servo_left = roll_man; 
+          servo_right = pitch_man;
+          break; 
+        }
     break;
 
     case 9:
