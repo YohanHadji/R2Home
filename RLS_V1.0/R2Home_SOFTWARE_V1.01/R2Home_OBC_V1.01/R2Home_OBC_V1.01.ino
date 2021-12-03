@@ -21,6 +21,7 @@
 #define dep_alt         100   // m above ground  
 #define vup             1.5   // m/s 
 #define vdown           2     // m/s
+#define gps_freq        5     // Hz
 
 #define time_out 300
 
@@ -230,7 +231,7 @@ void setup() {
   Serial.begin(115200);
   Serial5.begin(57600); 
 
-  gpset(57600, 5, 2, 1, 0); // baud, Hz, mode, nmea, cog filter (0 = Off, 1 = On)
+  gpset(57600, gps_freq, 2, 1, 0); // baud, Hz, mode, nmea, cog filter (0 = Off, 1 = On)
   
   rx.begin();
    
@@ -396,17 +397,18 @@ void datacmpt() {
    
       if (new_cog == true) {
         
-        raterror = getangle((last_errHome+180),(errHome+180))*5; raterror = rs.reading(raterror); 
-        ratecog = getangle(prev_cog_b,gps.course.deg())*5; ratecog = rc.reading(ratecog);
-        next_cog = (int(gps.course.deg() + (ratecog/2))%360); 
+        raterror = getangle((last_errHome+180),(errHome+180))*gps_freq ; raterror = rs.reading(raterror); 
+        ratecog  = getangle(prev_cog_b,gps.course.deg())*gps_freq;       ratecog  = rc.reading(ratecog);
         
         float PIDsum = ((NKp*errHome)+(NKd*raterror)); 
-        cmd_mult = (0.09999996 + (1 - 0.09999996)/(1 + pow(((abs(ratecog))/49.54231),24.26521))); cmd_mult = mult.reading(cmd_mult*1000); cmd_mult = (cmd_mult/1000); 
         
-        cmdHome = PIDsum*cmd_mult ;
+        //cmd_mult = (0.09999996 + (1 - 0.09999996)/(1 + pow(((abs(ratecog))/49.54231),24.26521))); cmd_mult = mult.reading(cmd_mult*1000); cmd_mult = (cmd_mult/1000); 
+
+        cmd_mult = 1;  
+        cmdHome  = PIDsum*cmd_mult ;
         
         //if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<5) { cmdHome = 180; } 
-        if (vspeed<-4) { spiral = true; } 
+        if (vspeed<-5) { spiral = true; } 
         if (vspeed>-3) { spiral = false; } 
         if (spiral == true) { cmdHome = 0; }
     
