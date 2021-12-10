@@ -16,7 +16,7 @@
 #define no_init         false // Skip init, for testing only purposes 
 #define rc_mode         2     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
-#define drop            false // R2Home's version, drop or motorised
+#define drop            true // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         100   // m above ground  
 #define vup             1.5   // m/s 
