@@ -4,7 +4,7 @@
 #include <SBUS.h>
 #include <EasyBuzzer.h>
 #include <Watchdog.h>
-#include <PWMServo.h>
+#include <Servo.h>
 #include <movingAvg.h>
 #include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
@@ -104,7 +104,7 @@ int timeled = 0;
 int lastled = 0; 
 
 // MISC // 
-int buzzer =   2;
+int buzzer = 2;
 int cam = 23; 
 int sw = 22; 
 int crash_count = 0; 
@@ -150,11 +150,11 @@ int count = 0;
 
 // SERVO /  
 movingAvg st(5); 
-PWMServo steer;
-PWMServo deploy; 
-PWMServo left; 
-PWMServo right; 
-PWMServo esc; 
+Servo steer;
+Servo deploy; 
+Servo left; 
+Servo right; 
+Servo esc; 
 
 float roll_man = 1500; 
 float pitch_man = 1500; 
@@ -206,11 +206,19 @@ unsigned long long tgps = 0;
 unsigned long long tup = 0; 
 unsigned long long tdown = 0; 
 unsigned long t_turn = 0; 
+unsigned long tlooptime = 0; 
+unsigned long mes = 0; 
 
 unsigned long long reboot_time = 0; 
 
+int loop_time = 999;
+int loop_time_min_loc = 999; 
+int loop_time_min_glob = 999; 
+int loop_time_max_loc = 999; 
+int loop_time_max_glob = 999; 
+double loop_time_mean = 999; 
+int loop_time_count = 0; 
 
-int loop_time = 999; 
 
 int delaySD = 100;    // Datalog 
 int delayTLM = 1000;   // Tlm 
@@ -221,6 +229,8 @@ Watchdog watchdog;
 
 
 void setup() {
+
+  //eppclear();  
   
   pinMode(A17, INPUT); 
   pinMode(buzzer, OUTPUT);
@@ -244,7 +254,7 @@ void setup() {
   pitch_steer.begin();
   rs.begin(); 
   rc.begin();
-  mult.begin();  
+  mult.begin(); 
 
   left.attach(6, 1000, 2000);  
   right.attach(7, 1000, 2000); 
@@ -295,20 +305,39 @@ void loop() {
   tloop = micros(); 
 
   sim(); 
-  
+
   getdata();
   datacmpt(); 
-
+  
   flight_state(); 
-
-  applycmd();
+  
+  applycmd(); 
   updatecmd(50);
-
+  
   userinter(); 
+  
+  loop_time = micros()-tloop;
 
-  loop_time = (micros()-tloop); 
-  if (loop_time<150000) {watchdog.reset(); crash_count = 0; }
-  if (loop_time>150000) { 
+
+  if (loop_time_count >= 100) {
+    loop_time_min_glob = loop_time_min_loc;
+    loop_time_max_glob = loop_time_max_loc;
+    loop_time_min_loc = 999; 
+    loop_time_max_loc = 999; 
+    loop_time_mean = (micros()-tlooptime)/100;
+    tlooptime = micros(); 
+    loop_time_count = 0; 
+  }
+
+  else if (loop_time_count < 100) {
+    if (loop_time<loop_time_min_loc) {loop_time_min_loc = loop_time; }
+    if (loop_time>loop_time_max_loc) {loop_time_max_loc = loop_time; }
+    loop_time_count++; 
+  }
+
+ 
+  if (loop_time<250000) {watchdog.reset(); crash_count = 0; }
+  if (loop_time>250000) { 
     crash_count = (crash_count + 1); 
     if (crash_count<=15) { watchdog.reset(); }
     else { 
@@ -376,6 +405,7 @@ void datacmpt() {
   
   if (((gps.location.age()) < 999) and (atof(fix_type.value()) == 3)) { gps_ok = true; }
   else { gps_ok = false; }
+
 
 // -------------------------- STUFF DEPENDING ON GPS COURSE OVER GROUND -------------------------- //
 
@@ -536,7 +566,9 @@ void datacmpt() {
   char deployed_text[10]; 
   char flight_mode_text[10]; 
   char vbatt_text[10]; 
-  char looptime_text[10]; 
+  char loopmax_text[10];
+  char loopmin_text[10];  
+  char loopmean_text[10];  
   char packet_count_text[10]; 
   char initialised_text[10]; 
   char wing_opened_text[10]; 
@@ -560,8 +592,7 @@ void datacmpt() {
   char time_hour[10]; 
   char time_minute[10];
   char time_seconde[10];
-
-
+  
   dtostrf(gps.date.year(), 2, 0, date_year);
   dtostrf(gps.date.month(), 1, 0, date_month);
   dtostrf(gps.date.day(), 1, 0, date_day);
@@ -569,7 +600,7 @@ void datacmpt() {
   dtostrf(gps.time.hour(), 1, 0, time_hour);
   dtostrf(gps.time.minute(), 1, 0, time_minute);
   dtostrf(gps.time.second(), 1, 0, time_seconde);
-
+   
  
   snprintf(date_time, 100, "%s:%s:%s,%s:%s:%s", date_year, date_month, date_day, time_hour, time_minute, time_seconde);
 
@@ -645,11 +676,13 @@ void datacmpt() {
   dtostrf(deployed, 1, 0, deployed_text);
   dtostrf(wing_opened, 1, 0, wing_opened_text);
   dtostrf(vbatt, 1, 3, vbatt_text);
-  dtostrf(loop_time, 1, 0, looptime_text);
+  dtostrf(loop_time_min_glob, 1, 0, loopmin_text);
+  dtostrf(loop_time_max_glob, 1, 0, loopmax_text);
+  dtostrf(loop_time_mean, 1, 0, loopmean_text);
   dtostrf(packet_count, 1, 0, packet_count_text);
   dtostrf(initialised, 1, 0, initialised_text);
   
-  snprintf(status_text, 100, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", time_text, packet_count_text, flight_mode_text, gps_ok_text, cog_ok_text, failSafe_text, gps_stab_text, baro_stab_text, deployed_text, wing_opened_text, initialised_text, vbatt_text, looptime_text);  
+  snprintf(status_text, 100, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", time_text, packet_count_text, flight_mode_text, gps_ok_text, cog_ok_text, failSafe_text, gps_stab_text, baro_stab_text, deployed_text, wing_opened_text, initialised_text, vbatt_text, loopmin_text, loopmax_text, loopmean_text);  
 
   snprintf(mainSD, 340, "%s,%s,%s,%s,%s,%s", status_text, gps_text, baro_text, nav_text, rc_text, servo_text);
 
@@ -682,7 +715,14 @@ void datacmpt() {
     tlm = millis(); 
     packet_count = (packet_count +1); 
     Serial5.println(mainTLM);   
-    Serial.println(mainTLM);  
+    Serial.println(mainTLM); 
+    
+    if (sd_ok == true) {
+        dataFile = SD.open(namebuff, FILE_WRITE);
+        if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
+        else { sd_ok = false; }
+    }
+      
   } 
  
 // -------------------------- SD DATALOG -------------------------- //
@@ -693,16 +733,15 @@ if (record_home == false) {
 
     if ((millis()-sd)>=delaySD) { 
       sd = millis(); 
-    
-      if (!SD.begin(chipSelect)) { sd_ok = false; }
-      else { 
-        sd_ok = true; 
+     
+      if (sd_ok == true) {
         dataFile = SD.open(namebuff, FILE_WRITE);
-      
         if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
         else { sd_ok = false; }
-    }
-   }
+      }
+   
+    
+   } 
   }
  }
  
@@ -712,15 +751,13 @@ else {
 
     if ((millis()-sd)>=delaySD) { 
       sd = millis(); 
+ 
     
-      if (!SD.begin(chipSelect)) { sd_ok = false; }
-      else { 
-        sd_ok = true; 
+      if (sd_ok == true) { 
         dataFile = SD.open(namebuff, FILE_WRITE);
-      
         if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
         else { sd_ok = false; }
-    }
+    }   
    }
   }
  }
@@ -737,11 +774,11 @@ void flight_state() {
     Serial5.println(mainTLM);   
     Serial.println(mainTLM); 
     
-    if (!SD.begin(chipSelect)) {}
-    else { 
+    if (sd_ok == true) {
       dataFile = SD.open(namebuff, FILE_WRITE);
       if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
-    } 
+    }
+     
    prev_mode = flight_mode;  
  }
   
@@ -958,6 +995,8 @@ void motorised_auto() {
   if (channels[6] < 1000) { flight_mode = 8; }
 }
 
+//------------------- 10 -------------------//
+
 void motorised_failSafe() { 
   if (failSafe == false) { flight_mode = 8; }
 }
@@ -1110,9 +1149,9 @@ if (drop == true) {
     if ((millis()-tpwm)>=(1000/a)) { 
     
     tpwm = millis(); 
-    left.write(map(servo_left,1000,2000,5,175));
-    right.write(map(servo_right,1000,2000,5,175)); 
-    deploy.write(map(servo_deploy,1000,2000,0,180));
+    left.writeMicroseconds(servo_left);
+    right.writeMicroseconds(servo_right); 
+    deploy.writeMicroseconds(servo_deploy);
     
   }
  }
@@ -1122,9 +1161,9 @@ else {
   if ((millis()-tpwm)>=(1000/a)) { 
     
     tpwm = millis(); 
-    left.write(map(servo_left,1000,2000,5,175));
-    right.write(map(servo_right,1000,2000,5,175)); 
-    esc.write(map(servo_esc,1000,2000,0,180));
+    left.writeMicroseconds(servo_left);
+    right.writeMicroseconds(servo_right); 
+    esc.writeMicroseconds(servo_esc);
     
   }
  } 
@@ -1147,7 +1186,6 @@ void userinter() {
    
 
     if ((millis()-t_turn)>t_down) { 
-      Serial.print("test"); 
       t_turn = millis(); 
       EasyBuzzer.singleBeep(tone_turn,10);
     }
@@ -1332,18 +1370,20 @@ void sendPacket(byte *packet, byte len){
 }
 
 void newfile() { 
+  
   dtostrf(time_number, 1, 0, sdnamebuff); 
-    sprintf(namebuff, "%s.txt", sdnamebuff);
+  sprintf(namebuff, "%s.txt", sdnamebuff);
     
-    if (!SD.begin(chipSelect)) {}
-    else { 
-      SdFile::dateTimeCallback(dateTime);
-      dataFile = SD.open(namebuff, FILE_WRITE);
-      delay(10); 
-      if (dataFile) {  
-        dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Looptime (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Next_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
-        dataFile.close();
-        EEPROM.put(90, time_number);
+  if (!SD.begin(chipSelect)) { sd_ok = false; }
+  else { 
+    sd_ok = true; 
+    SdFile::dateTimeCallback(dateTime);
+    dataFile = SD.open(namebuff, FILE_WRITE);
+    delay(10); 
+    if (dataFile) {  
+      dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Loopmin (µS), Loopmax (µS), Loopmean (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Next_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
+      dataFile.close();
+      EEPROM.put(90, time_number);
     }
   }
 }
@@ -1352,4 +1392,9 @@ void sim() {
   sim_cmd_time = (millis()*(PI/4000));
   sim_cmd = sin(sim_cmd_time); 
   sim_cmd = map(sim_cmd, -1, 1, -180, 180); 
+}
+
+void eppclear() { 
+  for ( unsigned int i = 0 ; i < EEPROM.length() ; i++ )
+  EEPROM.write(i, 0); 
 }
