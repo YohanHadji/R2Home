@@ -3,7 +3,7 @@
 
 // ------------------------------------------------------------------------------------ // 
 
-bool sim_signal = true;   // Use this line to switch between simulated signal or Servo tester 
+bool sim_signal = false;   // Use this line to switch between simulated signal or Servo tester 
 
 // ------------------------------------------------------------------------------------ // 
 
@@ -16,15 +16,16 @@ ServoInputPin<InputPinCmd> inputCmd;
 
 Servo outputServo;
 
-float parallax_steer = 1500; 
+float parallax_steer_a = 1500; 
+float parallax_steer_b = 1500; 
 float feedback_value = 1500; 
 
 unsigned long tread     = 0; 
 unsigned long tchange   = 0; 
 unsigned long tparallax = 0; 
 
-float Kp        = 1.5;
-float Kd        = 6; 
+float Kp        = 0.75;
+float Kd        = 0; 
 float lasterror = 0;  
 
 float error    = 0;
@@ -46,8 +47,8 @@ void setup() {
 
 void loop() {
 
-  if (sim_signal == true) { sim(3);     }
-  else                    { getcmd(50); }
+  if (sim_signal == false){ getcmd(50);  }
+  else                    { sim(3);      }
   
   updatecmd(200); 
   
@@ -60,9 +61,10 @@ void getcmd(int a) {
 if ((millis()-tread)>=(1000/a)) {
   tread = millis(); 
 
-  parallax_steer = inputCmd.getPulse();
-  parallax_steer = constrain(parallax_steer, 1000, 2000); 
- 
+  parallax_steer_a = inputCmd.getPulse();
+  if ((parallax_steer_a<900) or (parallax_steer_a>2100)) { parallax_steer_a = 1500; }
+  parallax_steer_a = constrain(parallax_steer_a, 1000, 2000); 
+  
   }
 }
 
@@ -81,7 +83,7 @@ void sim(int a) {
       toss = 0; 
     }  
   } 
-  parallax_steer = sim_cmd;
+  parallax_steer_a = sim_cmd;
 }
 
 // ------------------ Update the command at a Hz  ------------------ //
@@ -97,15 +99,17 @@ void updatecmd(int a) {
       if ((feedback_value <= 25) or (feedback_value >= 1100)) { feedback_value = 515; }
 
       constrain(feedback_value, 30, 1066); 
-      feedback_value = map(feedback_value, 30, 1066, 2000, 1000); 
+      feedback_value = map(feedback_value, 30, 1066, 2000, 1000);  
 
       // ------------------------------------------------------------------------------------ // 
 
-      parallax_steer = map(parallax_steer, 1000, 2000, 1100, 1900); // this is the ONLY line to change to reduce the range, for example, "[...] 1450, 1550)" 
+      parallax_steer_b = map(parallax_steer_a, 1000, 2000, 1100, 1900); // this is the ONLY line to change to reduce the range, for example, "[...] 1450, 1550)" 
+
+      Serial.print(parallax_steer_b); Serial.print(","); Serial.println(feedback_value); 
 
       // ------------------------------------------------------------------------------------ //
      
-      error = (parallax_steer - feedback_value); 
+      error = (parallax_steer_b - feedback_value); 
       raterror = (error-lasterror);
       PIDsum = (Kp*error)+(Kd*raterror);  
       cmd = 1500 + PIDsum; 
@@ -114,7 +118,6 @@ void updatecmd(int a) {
       if (cmd <1500) {cmd = cmd-20;}
         
       constrain(cmd, 1280, 1720); 
-      Serial.print(parallax_steer); Serial.print(","); Serial.println(feedback_value);  
       outputServo.writeMicroseconds(cmd);
       lasterror = error;  
   } 
