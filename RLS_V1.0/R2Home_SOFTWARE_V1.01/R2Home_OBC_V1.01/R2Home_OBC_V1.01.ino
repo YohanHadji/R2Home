@@ -47,6 +47,8 @@
 
 #define gliding_timer 2500
 
+#define waypoint_threshold 10 // Distance to waypoint before going to the next waypoint 
+
 int dep_altitude = dep_alt; 
 int cog_count = 2;  
 
@@ -131,6 +133,14 @@ float ratecog = 0;
 float prev_cog_b = 0;
 float cmd_mult = 0;  
 
+struct gps_location { 
+  double latitude = 0; 
+  double longitude = 0; 
+};
+
+gps_location waypoint[16]; 
+int waypoint_number = 0; 
+
 // RX // 
 SBUS rx(Serial1);
 movingAvg roll_steer(25);
@@ -141,6 +151,7 @@ bool lostFrame;
 
 // SD CARD // 
 File dataFile; 
+File configFile; 
 const int chipSelect = BUILTIN_SDCARD;
 char namebuff[20]; 
 unsigned int addr = 0;
@@ -262,9 +273,8 @@ void setup() {
   if (drop == true) { deploy.attach(8, 1000, 2000); } 
   else              { esc.attach(8, 1000, 2000);    }
 
+  getconfig(); 
   
-  bmp.begin(0X76);
-
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     
   Adafruit_BMP280::SAMPLING_X1,   
   Adafruit_BMP280::SAMPLING_X2,    
@@ -969,6 +979,8 @@ void flight_gliding_auto() {
   if (vspeed > -5) { spiral = false; } 
 
   if (i_want_to_fly == true) { spiral = false; flight_mode = 5; } 
+  
+  navigation(); 
 }
 
 //------------------- 6 -------------------//
@@ -992,12 +1004,18 @@ void motorised_man() {
 //------------------- 9 -------------------//
 
 void motorised_auto() { 
+  
+  navigation(); 
+  
   if (channels[6] < 1000) { flight_mode = 8; }
 }
 
 //------------------- 10 -------------------//
 
 void motorised_failSafe() { 
+  
+  navigation(); 
+  
   if (failSafe == false) { flight_mode = 8; }
 }
 // ----------------------------------------------------- Apply command ----------------------------------------------------- //
@@ -1397,4 +1415,57 @@ void sim() {
 void eppclear() { 
   for ( unsigned int i = 0 ; i < EEPROM.length() ; i++ )
   EEPROM.write(i, 0); 
+}
+
+void getconfig() {
+  String baro_adress = ""; 
+
+  if (!SD.begin(chipSelect)) { sd_ok = false; }
+  else {
+    File configFile = SD.open("config.txt", FILE_READ);
+    if (configFile) {
+
+      // Reading the baro adress 
+      
+      while (configFile.available()) {
+        char a = configFile.read(); 
+        if (a != 44) { baro_adress = baro_adress + a; }
+        else { break; }
+      }
+
+      char a = '0'; 
+      unsigned int i(0); 
+
+      // Reading the Waypoints 
+      while (configFile.available() and (i<15)) {
+        String waypoint_str = ""; 
+        do {
+          a = configFile.read(); 
+          if (a != 44) { waypoint_str = waypoint_str + a; }
+          else { waypoint[i].latitude = (waypoint_str.toFloat()); break; }
+        } while (a != 44); 
+        waypoint_str = ""; 
+        do {
+          a = configFile.read(); 
+          if (a != 44) { waypoint_str = waypoint_str + a; }
+          else { waypoint[i].longitude = (waypoint_str.toFloat()); i++; break; }
+        } while (a != 44); 
+      }
+      configFile.close();
+    }
+  }
+ 
+  if (baro_adress == "0x76") { bmp.begin(0x76); }
+  else if (baro_adress == "0x77") { bmp.begin(0x77); }
+  else (Serial.println("Adress error in config file !!!")); 
+}
+
+void navigation() {
+  if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint_threshold) { 
+    if (waypoint_number < 15) { waypoint_number++; } 
+    if ((waypoint[waypoint_number].latitude !=0) and (waypoint[waypoint_number].longitude !=0)) {
+      lat_B = waypoint[waypoint_number].latitude; 
+      lon_B = waypoint[waypoint_number].longitude; 
+    }
+  }   
 }
