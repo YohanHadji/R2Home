@@ -22,6 +22,8 @@
 #define vup             1.5   // m/s 
 #define vdown           2     // m/s
 #define gps_freq        5     // Hz
+#define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
+#define nav_home        false // Should it go home after the waypoint sequence? 
 
 #define time_out 300
 
@@ -63,6 +65,7 @@ float sim_cmd = 0;
 
 // BARO // 
 Adafruit_BMP280 bmp(&Wire);
+int baro_adress = 0x00; 
 float alt_baro = 0;
 float prev_alt = 0; 
 float vspeed = 0; 
@@ -138,8 +141,9 @@ struct gps_location {
   double longitude = 0; 
 };
 
-gps_location waypoint[16]; 
+gps_location waypoint[17]; 
 int waypoint_number = 0; 
+int last_waypoint_number = 0; 
 
 // RX // 
 SBUS rx(Serial1);
@@ -274,6 +278,7 @@ void setup() {
   else              { esc.attach(8, 1000, 2000);    }
 
   getconfig(); 
+  bmp.begin(baro_adress); 
   
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     
   Adafruit_BMP280::SAMPLING_X1,   
@@ -373,7 +378,7 @@ void getdata() {
     baroA = millis();
     unsigned waitd = millis(); 
     alt_baro = al.reading(bmp.readAltitude(baro_set)*100);
-    if (((millis() - waitd) > 100)) { EasyBuzzer.singleBeep(3000,50); bmp.begin(0X76); bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, Adafruit_BMP280::SAMPLING_X1, Adafruit_BMP280::SAMPLING_X2,  Adafruit_BMP280::FILTER_X16, Adafruit_BMP280::STANDBY_MS_1); } 
+    if (((millis() - waitd) > 100)) { EasyBuzzer.singleBeep(3000,50); bmp.begin(baro_adress); bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, Adafruit_BMP280::SAMPLING_X1, Adafruit_BMP280::SAMPLING_X2,  Adafruit_BMP280::FILTER_X16, Adafruit_BMP280::STANDBY_MS_1); } 
     alt_baro = (alt_baro/100);
     baro_count = (baro_count + 1);;
      
@@ -859,8 +864,22 @@ void flight_init() {
   if (((gps.satellites.value() >= 6) and (gps_ok == true) and (gps_stab == true) and (millis()>5000)) or (no_init == true)) {
    
     EasyBuzzer.beep(3000,100,50,10,500,1);
-    lat_B = gps.location.lat();
-    lon_B = gps.location.lng();
+
+    if ((nav_waypoint == true) and (nav_home == true)) {
+      waypoint[last_waypoint_number].latitude = gps.location.lat();
+      waypoint[last_waypoint_number].longitude = gps.location.lng();
+    }
+
+    else if ((nav_waypoint == false) and (nav_home == true)) {
+      lat_B = gps.location.lat();
+      lon_B = gps.location.lng();
+    }
+
+    else if ((nav_waypoint == true) and (nav_home == false)) {
+      lat_B = waypoint[waypoint_number].latitude; 
+      lon_B = waypoint[waypoint_number].longitude; 
+      waypoint_number++; 
+    }
 
     initialised = true; 
 
@@ -1418,7 +1437,6 @@ void eppclear() {
 }
 
 void getconfig() {
-  String baro_adress = ""; 
 
   if (!SD.begin(chipSelect)) { sd_ok = false; }
   else {
@@ -1426,12 +1444,14 @@ void getconfig() {
     if (configFile) {
 
       // Reading the baro adress 
-      
+      String memory = ""; 
       while (configFile.available()) {
         char a = configFile.read(); 
-        if (a != 44) { baro_adress = baro_adress + a; }
+        if (a != 44) { memory = memory + a; }
         else { break; }
       }
+
+      baro_adress = memory.toFloat();
 
       char a = '0'; 
       unsigned int i(0); 
@@ -1451,21 +1471,22 @@ void getconfig() {
           else { waypoint[i].longitude = (waypoint_str.toFloat()); i++; break; }
         } while (a != 44); 
       }
+      last_waypoint_number = i+1; 
       configFile.close();
     }
-  }
- 
-  if (baro_adress == "0x76") { bmp.begin(0x76); }
-  else if (baro_adress == "0x77") { bmp.begin(0x77); }
-  else (Serial.println("Adress error in config file !!!")); 
+  }  
 }
 
+
+
 void navigation() {
-  if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint_threshold) { 
-    if (waypoint_number < 15) { waypoint_number++; } 
-    if ((waypoint[waypoint_number].latitude !=0) and (waypoint[waypoint_number].longitude !=0)) {
-      lat_B = waypoint[waypoint_number].latitude; 
-      lon_B = waypoint[waypoint_number].longitude; 
-    }
-  }   
+  if (nav_waypoint == true) {
+    if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint_threshold) { 
+      if (waypoint_number < 15) { waypoint_number++; } 
+      if ((waypoint[waypoint_number].latitude !=0) and (waypoint[waypoint_number].longitude !=0)) {
+        lat_B = waypoint[waypoint_number].latitude; 
+        lon_B = waypoint[waypoint_number].longitude; 
+      }
+    }   
+  }
 }
