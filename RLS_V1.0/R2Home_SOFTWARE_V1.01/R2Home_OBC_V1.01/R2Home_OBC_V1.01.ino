@@ -139,6 +139,7 @@ float cmd_mult = 0;
 struct gps_location { 
   double latitude = 0; 
   double longitude = 0; 
+  double radius = 0; 
 };
 
 gps_location waypoint[17]; 
@@ -868,6 +869,7 @@ void flight_init() {
     if ((nav_waypoint == true) and (nav_home == true)) {
       waypoint[last_waypoint_number].latitude = gps.location.lat();
       waypoint[last_waypoint_number].longitude = gps.location.lng();
+      waypoint[last_waypoint_number].radius = waypoint_threshold; 
     }
 
     else if ((nav_waypoint == false) and (nav_home == true)) {
@@ -878,6 +880,7 @@ void flight_init() {
     else if ((nav_waypoint == true) and (nav_home == false)) {
       lat_B = waypoint[waypoint_number].latitude; 
       lon_B = waypoint[waypoint_number].longitude; 
+  
       waypoint_number++; 
     }
 
@@ -1468,7 +1471,12 @@ void getconfig() {
         do {
           a = configFile.read(); 
           if (a != 44) { waypoint_str = waypoint_str + a; }
-          else { waypoint[i].longitude = (waypoint_str.toFloat()); i++; break; }
+          else { waypoint[i].longitude = (waypoint_str.toFloat()); break; }
+        } while (a != 44); 
+        do {
+          a = configFile.read(); 
+          if (a != 44) { waypoint_str = waypoint_str + a; }
+          else { waypoint[i].radius = (waypoint_str.toFloat()); i++; break; }
         } while (a != 44); 
       }
       last_waypoint_number = i+1; 
@@ -1481,7 +1489,7 @@ void getconfig() {
 
 void navigation() {
   if (nav_waypoint == true) {
-    if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint_threshold) { 
+    if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint[waypoint_number].radius) { 
       if (waypoint_number < 15) { waypoint_number++; } 
       if ((waypoint[waypoint_number].latitude !=0) and (waypoint[waypoint_number].longitude !=0)) {
         lat_B = waypoint[waypoint_number].latitude; 
