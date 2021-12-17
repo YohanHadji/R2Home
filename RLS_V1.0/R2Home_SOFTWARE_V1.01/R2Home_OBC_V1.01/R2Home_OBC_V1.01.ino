@@ -16,7 +16,7 @@
 #define no_init         false // Skip init, for testing only purposes 
 #define rc_mode         2     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
-#define drop            true // R2Home's version, drop or motorised
+#define drop            false // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         100   // m above ground  
 #define vup             1.5   // m/s 
@@ -33,11 +33,11 @@
 #define blow 3.5
 #define no_batt 4.0 
 
-#define servo_man_min 1100
-#define servo_man_max 1900 
+#define servo_man_min 1050
+#define servo_man_max 1950 
 
-#define servo_auto_min 1100 
-#define servo_auto_max 1900
+#define servo_auto_min 1050 
+#define servo_auto_max 1950
 
 #define servo_left_min 2000 
 #define servo_left_start 1300
@@ -224,6 +224,7 @@ unsigned long long tdown = 0;
 unsigned long t_turn = 0; 
 unsigned long tlooptime = 0; 
 unsigned long mes = 0; 
+unsigned long last_waypoint_time = 0; 
 
 unsigned long long reboot_time = 0; 
 
@@ -379,7 +380,15 @@ void getdata() {
     baroA = millis();
     unsigned waitd = millis(); 
     alt_baro = al.reading(bmp.readAltitude(baro_set)*100);
-    if (((millis() - waitd) > 100)) { EasyBuzzer.singleBeep(3000,50); bmp.begin(baro_adress); bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, Adafruit_BMP280::SAMPLING_X1, Adafruit_BMP280::SAMPLING_X2,  Adafruit_BMP280::FILTER_X16, Adafruit_BMP280::STANDBY_MS_1); } 
+    if (((millis() - waitd) > 100)) { 
+      EasyBuzzer.singleBeep(3000,50); 
+      bmp.begin(baro_adress); 
+      bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, 
+                      Adafruit_BMP280::SAMPLING_X1, 
+                      Adafruit_BMP280::SAMPLING_X2,  
+                      Adafruit_BMP280::FILTER_X16, 
+                      Adafruit_BMP280::STANDBY_MS_1); 
+    } 
     alt_baro = (alt_baro/100);
     baro_count = (baro_count + 1);;
      
@@ -704,6 +713,8 @@ void datacmpt() {
 
   snprintf(mainTLM, 250, "/*%s,%s,%s,%s*/", status_text, gps_text, baro_text, servo_text);
 
+  //snprintf(mainTLM, 250, "/*%s,%s,%s*/", status_text, gps_text, nav_text);
+
 // -------------------------- TLM -------------------------- //
 
   switch(flight_mode) { 
@@ -730,7 +741,7 @@ void datacmpt() {
   if (millis()-tlm>=delayTLM) { 
     tlm = millis(); 
     packet_count = (packet_count +1); 
-    Serial5.println(mainTLM);   
+    //Serial5.println(mainTLM);   
     Serial.println(mainTLM); 
     
     if (sd_ok == true) {
@@ -787,7 +798,7 @@ void flight_state() {
   if (flight_mode != prev_mode) { 
 
     packet_count = (packet_count +1); 
-    Serial5.println(mainTLM);   
+    //Serial5.println(mainTLM);   
     Serial.println(mainTLM); 
     
     if (sd_ok == true) {
@@ -1216,21 +1227,22 @@ void userinter() {
 // -------------------------- Buzzer -------------------------- //
 
   EasyBuzzer.update();
+  
 
+  if (buzzer_turn == true and (flight_mode == 5 or flight_mode == 9 or flight_mode == 10)) { 
 
-  if (buzzer_turn == true and flight_mode == 5) { 
+    if (millis()-last_waypoint_time > 2000) {
     
-    int tone_turn = map(steer_auto, 1000, 2000, 1000, 3000); 
-    double t_down    = abs(map(steer_auto, 1000, 2000, -9, 9))+1; 
-    t_down = (1/t_down)*500; 
-   
+      int tone_turn = map(steer_auto, 1000, 2000, 1000, 3000); 
+      double t_down    = abs(map(steer_auto, 1000, 2000, -9, 9))+1; 
+      t_down = (1/t_down)*500;
 
-    if ((millis()-t_turn)>t_down) { 
-      t_turn = millis(); 
-      EasyBuzzer.singleBeep(tone_turn,10);
-    }
-    
-  }
+      if ((millis()-t_turn)>t_down) { 
+        t_turn = millis(); 
+        EasyBuzzer.singleBeep(tone_turn,10);
+      } 
+   }
+ }
   
 // -------------------------- Voltage monitoring -------------------------- //
 
@@ -1460,7 +1472,7 @@ void getconfig() {
       unsigned int i(0); 
 
       // Reading the Waypoints 
-      while (configFile.available() and (i<15)) {
+      while (configFile.available() and (i<16)) {
         String waypoint_str = ""; 
         do {
           a = configFile.read(); 
@@ -1473,6 +1485,7 @@ void getconfig() {
           if (a != 44) { waypoint_str = waypoint_str + a; }
           else { waypoint[i].longitude = (waypoint_str.toFloat()); break; }
         } while (a != 44); 
+        waypoint_str = "";
         do {
           a = configFile.read(); 
           if (a != 44) { waypoint_str = waypoint_str + a; }
@@ -1481,20 +1494,38 @@ void getconfig() {
       }
       last_waypoint_number = i+1; 
       configFile.close();
+      /*
+      for (unsigned int j(0); j<17; j++) {
+        Serial.print(waypoint[j].latitude); Serial.print(", ");
+        Serial.print(waypoint[j].longitude); Serial.print(", ");
+        Serial.println(waypoint[j].radius); 
+      }
+      */ 
     }
   }  
 }
 
-
-
 void navigation() {
+
+  bool skipp = false; 
+
+  /* 
+  while (Serial.available()) { 
+    char cmd_next = Serial.read(); 
+    if (cmd_next == 'N') {
+      skipp = true; 
+    }
+  }
+  */
+  
+  
   if (nav_waypoint == true) {
-    if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint[waypoint_number].radius) { 
-      if (waypoint_number < 15) { waypoint_number++; } 
+    if ((TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint[waypoint_number].radius) or (skipp == true)) { 
+      if (waypoint_number < 15) { waypoint_number++; EasyBuzzer.beep(3000,200,75,5,500,1); last_waypoint_time = millis(); } 
       if ((waypoint[waypoint_number].latitude !=0) and (waypoint[waypoint_number].longitude !=0)) {
         lat_B = waypoint[waypoint_number].latitude; 
         lon_B = waypoint[waypoint_number].longitude; 
       }
     }   
-  }
+  } 
 }
