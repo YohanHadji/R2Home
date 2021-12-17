@@ -12,8 +12,8 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
-#define buzzer_turn     true  // Buzzer sounds as function of the turn command 
-#define no_init         false // Skip init, for testing only purposes 
+#define buzzer_turn     false // Buzzer sounds as function of the turn command 
+#define no_init         true  // Skip init, for testing only purposes 
 #define rc_mode         2     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
 #define drop            false // R2Home's version, drop or motorised
@@ -24,6 +24,7 @@
 #define gps_freq        5     // Hz
 #define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
 #define nav_home        false // Should it go home after the waypoint sequence? 
+#define sd_writing      true  // Should it write on the SD card or not? 
 
 #define time_out 300
 
@@ -199,8 +200,9 @@ int reboot_state = 0;
 
 // STRING //
 char sdnamebuff[20]; 
-char mainSD[240];
-char mainTLM[250];   
+String mainSD;
+String mainTLM;   
+String minSD; 
 
 int time_number = 0; 
 boolean flight_rebooted = false; 
@@ -545,175 +547,103 @@ void datacmpt() {
   }   
 
 // -------------------------- String -------------------------- //
+  
+  String date_year  = String(gps.date.year());
+  String date_month = String(gps.date.month());
+  String date_day   = String(gps.date.day()); 
 
-  char lat_A_text[30];
-  char lon_A_text[30];
-  char alt_gps_text[30];
-  char cog_text[30]; 
-  char speed_text[30];
-  char sat_text[30];
-  char fix_type_text[10];
-  char hdop_text[10];
-  char pos_age_text[10]; 
-  char count_text[10]; 
-  char time_text[10];
-
-  char alt_baro_text[30];
-  char vspeed_text[30];
-
-  char merged_alt_text[30];
-  char baro_weight_text[30];
-  char gps_weight_text[30]; 
-  char setPoint_Home_text[30]; 
-  char lat_B_text[30];
-  char lon_B_text[30];
-  char errHome_text[30]; 
-  char raterror_text[30]; 
-
-  char a_text[10]; 
-  char b_text[10]; 
-  char c_text[10]; 
-  char d_text[10]; 
-  char e_text[10]; 
-  char f_text[10]; 
-  char g_text[10]; 
-  
-  char deploy_text[10]; 
-  char left_text[10]; 
-  char right_text[10]; 
-  char esc_text[10]; 
-  
-  char gps_ok_text[10];
-  char cog_ok_text[10];    
-  char failSafe_text[10]; 
-  char baro_stab_text[10]; 
-  char gps_stab_text[10]; 
-  char deployed_text[10]; 
-  char flight_mode_text[10]; 
-  char vbatt_text[10]; 
-  char loopmax_text[10];
-  char loopmin_text[10];  
-  char loopmean_text[10];  
-  char packet_count_text[10]; 
-  char initialised_text[10]; 
-  char wing_opened_text[10]; 
-  char next_cog_text[10]; 
-  char cmd_mult_text[10]; 
-  
-  char mintext[120];
-  char gps_text[120]; 
-  char baro_text[120];
-  char rc_text[120]; 
-  char servo_text[120]; 
-  char status_text[120]; 
-  char alt_text[120]; 
-  char nav_text[120]; 
-  
-  char date_time[80];
-  
-  char date_year[10]; 
-  char date_month[10]; 
-  char date_day[10]; 
-  char time_hour[10]; 
-  char time_minute[10];
-  char time_seconde[10];
-  
-  dtostrf(gps.date.year(), 2, 0, date_year);
-  dtostrf(gps.date.month(), 1, 0, date_month);
-  dtostrf(gps.date.day(), 1, 0, date_day);
-
-  dtostrf(gps.time.hour(), 1, 0, time_hour);
-  dtostrf(gps.time.minute(), 1, 0, time_minute);
-  dtostrf(gps.time.second(), 1, 0, time_seconde);
-   
+  String time_hour    = String(gps.time.hour());
+  String time_minute  = String(gps.time.minute());
+  String time_second  = String(gps.time.second());   
  
-  snprintf(date_time, 100, "%s:%s:%s,%s:%s:%s", date_year, date_month, date_day, time_hour, time_minute, time_seconde);
+  String date_time = date_year+":"+date_month+":"+date_day+","+time_hour+":"+time_minute+":"+time_second; 
 
   if (flight_rebooted == false) { time_number = ((gps.date.day()*1000000) + (gps.time.hour()*10000) + (gps.time.minute()*100) + gps.time.second()); } 
 
-  dtostrf(gps.location.lat(), 10, 10, lat_A_text);
-  dtostrf(gps.location.lng(), 10, 10, lon_A_text);
-  dtostrf(gps.altitude.meters(), 1, 1, alt_gps_text);
-  dtostrf(gps.course.deg(), 1, 0, cog_text);
-  dtostrf(gps.speed.mps(), 1, 1, speed_text);
-  dtostrf(gps.satellites.value(), 1, 0, sat_text);
-  dtostrf(atof(fix_type.value()), 1, 0, fix_type_text);
-  dtostrf(gps.hdop.value(), 1, 0, hdop_text); 
+  String lat_A_text   = String(gps.location.lat(), 10); 
+  String lon_A_text   = String(gps.location.lng(), 10);
+  String alt_gps_text = String(gps.altitude.meters(), 1);
+  String cog_text     = String(gps.course.deg());
+  String speed_text   = String(gps.speed.mps(), 1);
+  String sat_text     = String(gps.satellites.value());
+  String fix_type_text= String(atof(fix_type.value()));
+  String hdop_text    = String(gps.hdop.value());
+  String pos_age_text; 
   
-  if (gps.location.age()>10000) { dtostrf(9999, 1, 0, pos_age_text); } 
-  else                         { dtostrf(gps.location.age(), 1, 0, pos_age_text); } 
+  if (gps.location.age()>10000) { pos_age_text = String(999); } 
+  else                          { pos_age_text = String(gps.location.age());  } 
 
-  snprintf(gps_text, 120, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", date_time, lat_A_text, lon_A_text, alt_gps_text, cog_text, speed_text, sat_text, hdop_text, pos_age_text, fix_type_text);
+  String gps_text = date_time+","+lat_A_text+","+lon_A_text+","+alt_gps_text+","+cog_text+","+speed_text+","+sat_text+","+hdop_text+","+pos_age_text+","+fix_type_text;
 
-  dtostrf(alt_baro, 1, 3, alt_baro_text);
-  dtostrf(vspeed, 1, 2, vspeed_text);
+  String alt_baro_text = String(alt_baro, 3);
+  String vspeed_text   = String(vspeed, 3);
   
-  snprintf(baro_text, 120, "%s,%s", alt_baro_text, vspeed_text);  
+  String baro_text = alt_baro_text+","+vspeed_text; 
   
-  dtostrf(merged_alt, 2, 3, merged_alt_text);  
-  dtostrf(gps_weight, 2, 2, gps_weight_text);
-  dtostrf(baro_weight, 2, 3, baro_weight_text);
+  String merged_alt_text = String(merged_alt,3);  
+  String gps_weight_text = String(gps_weight,2);
+  String baro_weight_text = String(baro_weight,3);
   
-  dtostrf(setPoint_Home, 2, 2, setPoint_Home_text);
-  dtostrf(errHome, 1, 2, errHome_text);
-  dtostrf(raterror, 1, 0, raterror_text); 
-  dtostrf(cmd_mult, 1, 3, cmd_mult_text); 
+  String setPoint_Home_text = String(setPoint_Home,2);
+  String errHome_text = String(errHome,2);
+  String raterror_text = String(raterror); 
+  String cmd_mult_text = String(cmd_mult,3); 
   
-  dtostrf(lat_B, 1, 5, lat_B_text);
-  dtostrf(lon_B, 1, 5, lon_B_text);
+  String lat_B_text = String(lat_B,5);
+  String lon_B_text = String(lon_B,5);
 
-  dtostrf(next_cog, 1, 0, next_cog_text); 
+  String next_cog_text = String(next_cog); 
       
-  snprintf(nav_text, 140, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", merged_alt_text, baro_weight_text, gps_weight_text, setPoint_Home_text, errHome_text, raterror_text, next_cog_text, cmd_mult_text, lat_B_text, lon_B_text);  
+  String nav_text = merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+setPoint_Home_text+","+errHome_text+","+raterror_text+","+next_cog_text+","+cmd_mult_text+","+lat_B_text+","+lon_B_text;  
 
-  dtostrf(channels[0], 2, 0, a_text);
-  dtostrf(channels[1], 2, 0, b_text);
-  dtostrf(channels[2], 2, 0, c_text);
-  dtostrf(channels[3], 2, 0, d_text);
-  dtostrf(channels[4], 2, 0, e_text);
-  dtostrf(channels[5], 2, 0, f_text);
-  dtostrf(channels[6], 2, 0, g_text);
+  String a_text = String(channels[0]);
+  String b_text = String(channels[1]);
+  String c_text = String(channels[2]);
+  String d_text = String(channels[3]);
+  String e_text = String(channels[4]);
+  String f_text = String(channels[5]);
+  String g_text = String(channels[6]);
 
-  snprintf(rc_text, 120, "%s,%s,%s,%s,%s,%s,%s", a_text, b_text, c_text, d_text, e_text, f_text, g_text);
+  String rc_text = a_text+","+b_text+","+c_text+","+d_text+","+e_text+","+f_text+","+g_text;
 
+  String servo_text; 
+  
   if (drop == true) { 
-    dtostrf(servo_left, 2, 0, left_text);
-    dtostrf(servo_right, 2, 0, right_text);
-    dtostrf(servo_deploy, 2, 0, deploy_text);
-    snprintf(servo_text, 40, "%s,%s,%s", left_text, right_text, deploy_text); 
+    String left_text = String(servo_left);
+    String right_text = String(servo_right);
+    String  deploy_text = String(servo_deploy);
+    servo_text = left_text+","+right_text+","+deploy_text; 
   }
 
   else { 
-    dtostrf(servo_left, 2, 0, left_text);
-    dtostrf(servo_right, 2, 0, right_text);
-    dtostrf(servo_esc, 2, 0, esc_text);
-    snprintf(servo_text, 40, "%s,%s,%s", left_text, right_text, esc_text);   
+    String left_text = String(servo_left);
+    String right_text = String(servo_right);
+    String esc_text = String(servo_esc);
+    servo_text = left_text+","+right_text+","+esc_text;   
   }
 
-  unsigned long long actual_time = (millis()+reboot_time); 
-  dtostrf(actual_time, 1, 0, time_text);
-  dtostrf(flight_mode, 1, 0, flight_mode_text);
-  dtostrf(gps_ok, 1, 0, gps_ok_text);
-  dtostrf(cog_ok, 1, 0, cog_ok_text);
-  dtostrf(failSafe, 1, 0, failSafe_text);
-  dtostrf(gps_stab, 1, 0, gps_stab_text);
-  dtostrf(baro_stab, 1, 0, baro_stab_text);
-  dtostrf(deployed, 1, 0, deployed_text);
-  dtostrf(wing_opened, 1, 0, wing_opened_text);
-  dtostrf(vbatt, 1, 3, vbatt_text);
-  dtostrf(loop_time_min_glob, 1, 0, loopmin_text);
-  dtostrf(loop_time_max_glob, 1, 0, loopmax_text);
-  dtostrf(loop_time_mean, 1, 0, loopmean_text);
-  dtostrf(packet_count, 1, 0, packet_count_text);
-  dtostrf(initialised, 1, 0, initialised_text);
+  int actual_time = (millis()+reboot_time);
+  String time_text = String(actual_time);
+  String flight_mode_text = String(flight_mode);
+  String gps_ok_text = String(gps_ok) ;
+  String cog_ok_text = String(cog_ok);
+  String failSafe_text = String(failSafe);
+  String gps_stab_text = String(gps_stab);
+  String baro_stab_text = String(baro_stab);
+  String deployed_text = String(deployed);
+  String wing_opened_text = String(wing_opened);
+  String vbatt_text = String(vbatt, 3);
+  String loopmin_text = String(loop_time_min_glob);
+  String loopmax_text = String(loop_time_max_glob);
+  String loopmean_text = String(loop_time_mean);
+  String packet_count_text = String(packet_count);
+  String initialised_text = String(initialised);
   
-  snprintf(status_text, 100, "%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s", time_text, packet_count_text, flight_mode_text, gps_ok_text, cog_ok_text, failSafe_text, gps_stab_text, baro_stab_text, deployed_text, wing_opened_text, initialised_text, vbatt_text, loopmin_text, loopmax_text, loopmean_text);  
+  String status_text = time_text+","+packet_count_text+","+flight_mode_text+","+gps_ok_text+","+cog_ok_text+","+failSafe_text+","+gps_stab_text+","+baro_stab_text+","+deployed_text+","+wing_opened_text+","+initialised_text+","+vbatt_text+","+loopmin_text+","+loopmax_text+","+loopmean_text;  
+  mainSD = status_text+","+gps_text+","+baro_text+","+nav_text+","+rc_text+","+servo_text;
+  mainTLM = "/*"+status_text+","+gps_text+","+baro_text+","+servo_text+"/*";
+  minSD   = time_text+","+date_time+","+alt_gps_text+","+lat_A_text+","+lon_A_text+","+lat_B_text+","+lon_B_text; 
 
-  snprintf(mainSD, 340, "%s,%s,%s,%s,%s,%s", status_text, gps_text, baro_text, nav_text, rc_text, servo_text);
-
-  snprintf(mainTLM, 250, "/*%s,%s,%s,%s*/", status_text, gps_text, baro_text, servo_text);
-
-  //snprintf(mainTLM, 250, "/*%s,%s,%s*/", status_text, gps_text, nav_text);
 
 // -------------------------- TLM -------------------------- //
 
@@ -741,13 +671,13 @@ void datacmpt() {
   if (millis()-tlm>=delayTLM) { 
     tlm = millis(); 
     packet_count = (packet_count +1); 
-    //Serial5.println(mainTLM);   
+    Serial5.println(mainTLM);   
     Serial.println(mainTLM); 
     
-    if (sd_ok == true) {
-        dataFile = SD.open(namebuff, FILE_WRITE);
-        if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
-        else { sd_ok = false; }
+    if (sd_ok == true and sd_writing == true) {
+        //dataFile = SD.open(namebuff, FILE_WRITE);
+        dataFile.println(mainSD); 
+        //else { sd_ok = false; }
     }
       
   } 
@@ -761,10 +691,8 @@ if (record_home == false) {
     if ((millis()-sd)>=delaySD) { 
       sd = millis(); 
      
-      if (sd_ok == true) {
-        dataFile = SD.open(namebuff, FILE_WRITE);
-        if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
-        else { sd_ok = false; }
+      if (sd_ok == true and sd_writing == true) {
+        dataFile.println(mainSD); 
       }
    
     
@@ -778,12 +706,9 @@ else {
 
     if ((millis()-sd)>=delaySD) { 
       sd = millis(); 
- 
-    
+
       if (sd_ok == true) { 
-        dataFile = SD.open(namebuff, FILE_WRITE);
-        if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
-        else { sd_ok = false; }
+        dataFile.println(mainSD); 
     }   
    }
   }
@@ -798,12 +723,11 @@ void flight_state() {
   if (flight_mode != prev_mode) { 
 
     packet_count = (packet_count +1); 
-    //Serial5.println(mainTLM);   
+    Serial5.println(mainTLM);   
     Serial.println(mainTLM); 
     
-    if (sd_ok == true) {
-      dataFile = SD.open(namebuff, FILE_WRITE);
-      if (dataFile) { dataFile.println(mainSD); dataFile.close(); }
+    if (sd_ok == true and sd_writing == true) {
+      dataFile.println(mainSD); 
     }
      
    prev_mode = flight_mode;  
