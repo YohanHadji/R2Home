@@ -4,7 +4,7 @@
 #include <SBUS.h>
 #include <EasyBuzzer.h>
 #include <Watchdog.h>
-#include <Servo.h>
+#include <PWMServo.h>
 #include <movingAvg.h>
 #include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
@@ -13,17 +13,17 @@
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
 #define buzzer_turn     false // Buzzer sounds as function of the turn command 
-#define no_init         true  // Skip init, for testing only purposes 
-#define rc_mode         2     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
+#define no_init         false // Skip init, for testing only purposes 
+#define rc_mode         1     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
-#define drop            false // R2Home's version, drop or motorised
+#define drop            true  // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         100   // m above ground  
 #define vup             1.5   // m/s 
 #define vdown           2     // m/s
 #define gps_freq        5     // Hz
 #define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
-#define nav_home        false // Should it go home after the waypoint sequence? 
+#define nav_home        true // Should it go home after the waypoint sequence? 
 #define sd_writing      true  // Should it write on the SD card or not? 
 
 #define time_out 300
@@ -167,11 +167,11 @@ int count = 0;
 
 // SERVO /  
 movingAvg st(5); 
-Servo steer;
-Servo deploy; 
-Servo left; 
-Servo right; 
-Servo esc; 
+PWMServo steer;
+PWMServo deploy; 
+PWMServo left; 
+PWMServo right; 
+PWMServo esc; 
 
 float roll_man = 1500; 
 float pitch_man = 1500; 
@@ -292,7 +292,7 @@ void setup() {
   
   strip.begin();           
   strip.show();            
-  strip.setBrightness(BRIGHTNESS);
+  strip.setBrightness(255);
 
   tone(buzzer, 523); 
   delay(200); 
@@ -605,7 +605,6 @@ void datacmpt() {
   String g_text = String(channels[6]);
 
   String rc_text = a_text+","+b_text+","+c_text+","+d_text+","+e_text+","+f_text+","+g_text;
-
   String servo_text; 
   
   if (drop == true) { 
@@ -842,7 +841,7 @@ void flight_init() {
   
     dep_altitude = (dep_altitude+gps.altitude.meters());
 
-    strip.setBrightness(50);
+    strip.setBrightness(255);
     setcam(1); 
   
     if (record_home == false) { newfile(); }   
@@ -895,22 +894,22 @@ void ready_steady() {
 
  if (millis()-init_time>=1000) { 
    
-  if (vspeed>vup)    { flight_mode = 2; EasyBuzzer.beep(1000,100,50,2,500,1); strip.setBrightness(75);  }
-  if (vspeed<vdown)  { flight_mode = 3; EasyBuzzer.beep(3000,100,50,3,500,1); strip.setBrightness(100); } 
-  if ((atof(fix_type.value()) < 2) and (no_init == false))  { flight_mode = 0; EasyBuzzer.beep(700,100,50,3,500,1);  strip.setBrightness(50);  }
+  if (vspeed>vup)    { flight_mode = 2; EasyBuzzer.beep(1000,100,50,2,500,1); strip.setBrightness(255);  }
+  if (vspeed<vdown)  { flight_mode = 3; EasyBuzzer.beep(3000,100,50,3,500,1); strip.setBrightness(255); } 
+  if ((atof(fix_type.value()) < 2) and (no_init == false))  { flight_mode = 0; EasyBuzzer.beep(700,100,50,3,500,1);  strip.setBrightness(255);  }
  
  }
 } 
 
 //------------------- 2 -------------------//
 
-void flight_ascent() { if (vspeed<0.5) {flight_mode = 1; strip.setBrightness(50);}  }
+void flight_ascent() { if (vspeed<0.5) {flight_mode = 1; strip.setBrightness(255);}  }
 
 //------------------- 3 -------------------//
 
 void flight_descent() { 
   
-  if (vspeed>-0.5) {flight_mode = 1; strip.setBrightness(50);} 
+  if (vspeed>-0.5) {flight_mode = 1; strip.setBrightness(255);} 
   if (merged_alt < dep_altitude) { flight_mode = 4; EasyBuzzer.beep(3000,100,50,5,500,1); strip.setBrightness(255); deployed = true; init_time = millis(); }
      
  }   
@@ -922,8 +921,8 @@ void flight_gliding() {
   if (((millis()-init_time) >= gliding_timer) or (vspeed > (vdown+1))) { 
   wing_opened = true; 
   last_errHome = errHome; 
-  if (failSafe == true) {flight_mode = 5; strip.setBrightness(100);} 
-  else                  {flight_mode = 6; strip.setBrightness(100);}
+  if (failSafe == true) {flight_mode = 5; strip.setBrightness(255);} 
+  else                  {flight_mode = 6; strip.setBrightness(255);}
   } 
 }
 
@@ -948,7 +947,7 @@ void flight_gliding_manual() {
 
 //------------------- 7 -------------------//
 
-void landed() { if ((baro_stab == false) or (gps_stab == false)) {flight_mode = 1; strip.setBrightness(50);} }
+void landed() { if ((baro_stab == false) or (gps_stab == false)) {flight_mode = 1; strip.setBrightness(255);} }
 
 //------------------- 8 -------------------//
 
@@ -995,14 +994,27 @@ void applycmd()  {
           break; 
 
           case 1:
-          servo_left = roll_man; 
-          servo_right = 3000-roll_man; 
+          servo_left = roll_man-500; 
+          servo_right = 2500-roll_man;
    
           servo_left  = servo_left+(pitch_man-1500); 
           servo_right = servo_right+(pitch_man-1500); 
           
-          servo_left = constrain(servo_left, servo_man_min, servo_man_max);
-          servo_right = constrain(servo_left, servo_man_min, servo_man_max);
+          servo_left = constrain(servo_left, servo_man_min, servo_man_max); 
+          if (servo_left>(servo_man_min+10)) { 
+            servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
+          }
+          else {
+            servo_left = servo_left_max; 
+          }
+
+          servo_right = constrain(servo_right, servo_man_min, servo_man_max);
+          if (servo_right>(servo_man_min+10)) {
+            servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
+          }
+          else { 
+            servo_right = servo_right_max;   
+          } 
           break; 
 
           case 2: 
@@ -1028,8 +1040,21 @@ void applycmd()  {
           servo_left  = servo_left+(pitch_man-1500); 
           servo_right = servo_right+(pitch_man-1500); 
           
-          servo_left = constrain(servo_left, servo_man_min, servo_man_max);
-          servo_right = constrain(servo_left, servo_man_min, servo_man_max);
+          servo_left = constrain(servo_left, servo_man_min, servo_man_max); 
+          if (servo_left>(servo_man_min+10)) { 
+            servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
+          }
+          else {
+            servo_left = servo_left_max; 
+          }
+
+          servo_right = constrain(servo_right, servo_man_min, servo_man_max);
+          if (servo_right>(servo_man_min+10)) {
+            servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
+          }
+          else { 
+            servo_right = servo_right_max;   
+          }
           break; 
 
           case 2: 
@@ -1093,7 +1118,7 @@ void applycmd()  {
      else {
        if (failSafe == true) { servo_deploy = 2000; } 
        else { servo_deploy = map(channels[6], 50, 1950, 1000, 2000);}
-      }
+      } 
    break; 
 
    case 8:
@@ -1124,9 +1149,9 @@ if (drop == true) {
     if ((millis()-tpwm)>=(1000/a)) { 
     
     tpwm = millis(); 
-    left.writeMicroseconds(servo_left);
-    right.writeMicroseconds(servo_right); 
-    deploy.writeMicroseconds(servo_deploy);
+    left.write(map(servo_left, 1000, 2000, 0, 180));
+    right.write(map(servo_right, 1000, 2000, 0, 180)); 
+    deploy.write(map(servo_deploy, 1000, 2000, 0, 180));
     
   }
  }
@@ -1136,9 +1161,9 @@ else {
   if ((millis()-tpwm)>=(1000/a)) { 
     
     tpwm = millis(); 
-    left.writeMicroseconds(servo_left);
-    right.writeMicroseconds(servo_right); 
-    esc.writeMicroseconds(servo_esc);
+    left.write(map(servo_left, 1000, 2000, 0, 180));
+    right.write(map(servo_right, 1000, 2000, 0, 180)); 
+    esc.write(map(servo_esc, 1000, 2000, 0, 180));
     
   }
  } 
@@ -1208,7 +1233,7 @@ void setled(int a, int b, int c, int d, int e) {
 
   if ((millis()-lastled)>=e) { 
     lastled = millis(); 
-    colorWipe(strip.Color(b,a,c), 0);
+    colorWipe(strip.Color(a,b,c), 0);
     duration = d; 
     timeled = millis(); 
  }
