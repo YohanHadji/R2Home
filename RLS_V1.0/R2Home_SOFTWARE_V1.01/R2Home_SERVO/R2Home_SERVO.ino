@@ -114,8 +114,8 @@ void updatecmd(int a) {
       PIDsum = (Kp*error)+(Kd*raterror);  
       cmd = 1500 + PIDsum; 
         
-      if (cmd >1500) {cmd = cmd+20;}
-      if (cmd <1500) {cmd = cmd-20;}
+      if (cmd >1500) {cmd = cmd+15;}
+      if (cmd <1500) {cmd = cmd-15;}
         
       constrain(cmd, 1280, 1720); 
       outputServo.writeMicroseconds(cmd);

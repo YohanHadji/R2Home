@@ -12,18 +12,18 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
-#define buzzer_turn     false // Buzzer sounds as function of the turn command 
+#define buzzer_turn     true  // Buzzer sounds as function of the turn command 
 #define no_init         false // Skip init, for testing only purposes 
 #define rc_mode         1     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
-#define drop            true  // R2Home's version, drop or motorised
+#define drop            false // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         100   // m above ground  
-#define vup             1.5   // m/s 
-#define vdown           2     // m/s
+#define vup             2     // m/s 
+#define vdown           -2    // m/s
 #define gps_freq        5     // Hz
 #define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
-#define nav_home        true // Should it go home after the waypoint sequence? 
+#define nav_home        false // Should it go home after the waypoint sequence? 
 #define sd_writing      true  // Should it write on the SD card or not? 
 
 #define time_out 300
@@ -34,11 +34,11 @@
 #define blow 3.5
 #define no_batt 4.0 
 
-#define servo_man_min 1050
-#define servo_man_max 1950 
+#define servo_man_min 1000
+#define servo_man_max 2000 
 
-#define servo_auto_min 1050 
-#define servo_auto_max 1950
+#define servo_auto_min 1000 
+#define servo_auto_max 2000
 
 #define servo_left_min 2000 
 #define servo_left_start 1300
@@ -56,8 +56,8 @@ int dep_altitude = dep_alt;
 int cog_count = 2;  
 
 // NAV PIDs // 
-float NKp = 0.8; 
-float NKd = 0.15; 
+float NKp = 1; 
+float NKd = 0; 
 
 double long sim_cmd_time = 0; 
 float sim_cmd = 0; 
@@ -89,7 +89,7 @@ boolean batt_low = false;
 // GPS // 
 TinyGPSPlus gps;
 TinyGPSCustom fix_type(gps, "GNGSA", 2);
-movingAvg rs(2); 
+movingAvg rs(1); 
 unsigned char serial2bufferRead[1000];
 float prev_cog = 0;
 int gps_count = 0; 
@@ -337,34 +337,7 @@ void loop() {
   
   loop_time = micros()-tloop;
 
-
-  if (loop_time_count >= 100) {
-    loop_time_min_glob = loop_time_min_loc;
-    loop_time_max_glob = loop_time_max_loc;
-    loop_time_min_loc = 999; 
-    loop_time_max_loc = 999; 
-    loop_time_mean = (micros()-tlooptime)/100;
-    tlooptime = micros(); 
-    loop_time_count = 0; 
-  }
-
-  else if (loop_time_count < 100) {
-    if (loop_time<loop_time_min_loc) {loop_time_min_loc = loop_time; }
-    if (loop_time>loop_time_max_loc) {loop_time_max_loc = loop_time; }
-    loop_time_count++; 
-  }
-
- 
-  if (loop_time<250000) {watchdog.reset(); crash_count = 0; }
-  if (loop_time>250000) { 
-    crash_count = (crash_count + 1); 
-    if (crash_count<=15) { watchdog.reset(); }
-    else { 
-    reboot_state = 1; 
-    EEPROM.put(0, reboot_state);
-    EEPROM.put(120, millis()); 
-    }
-  }
+  loop_time_cmpt(); 
 
 }
 
@@ -374,7 +347,6 @@ void getdata() {
   // -------------------------- Get GPS -------------------------- // 
 
  while (Serial7.available()) { gps.encode(Serial7.read()); }
-
 
   // -------------------------- Get BARO & COMPASS -------------------------- //
 
@@ -409,15 +381,16 @@ void getdata() {
   if ((channels[3])>=1500 or (channels[3])==0) { failSafe = true; }
   else { failSafe = false; } 
 
-  roll_man  = map(roll_steer.reading(channels[0]), 50, 1950, 1000, 2000);
-  pitch_man = map(pitch_steer.reading(channels[1]), 50, 1950, 1000, 2000);
-  roll_man  = constrain(roll_man, servo_man_min, servo_man_max); 
-  pitch_man = constrain(pitch_man, servo_man_min, servo_man_max); 
+  roll_man  = map(roll_steer.reading(channels[0]), 67, 1982, 1000, 2000);
+  pitch_man = map(pitch_steer.reading(channels[1]), 67, 1982, 1000, 2000);
+  roll_man  = constrain(roll_man, 1000, 2000); 
+  pitch_man = constrain(pitch_man, 1000, 2000);  
 
 // -------------------------- Get Vbatt -------------------------- //
 
+  analogReadResolution(12); 
   vbatt = analogRead(A17); 
-  vbatt = (voltage.reading(vbatt)*0.02579582875);
+  vbatt = (voltage.reading(vbatt));
 
 
 }
@@ -464,7 +437,6 @@ void datacmpt() {
         cmd_mult = 1;  
         cmdHome  = PIDsum*cmd_mult ;
         
-        //if (TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<5) { cmdHome = 180; } 
         if (vspeed<-5) { spiral = true; } 
         if (vspeed>-3) { spiral = false; } 
         if (spiral == true) { cmdHome = 0; }
@@ -674,11 +646,10 @@ void datacmpt() {
     Serial.println(mainTLM); 
     
     if (sd_ok == true and sd_writing == true) {
-        //dataFile = SD.open(namebuff, FILE_WRITE);
+        dataFile = SD.open(namebuff, FILE_WRITE);
         dataFile.println(mainSD); 
-        //else { sd_ok = false; }
-    }
-      
+        dataFile.close();
+    }  
   } 
  
 // -------------------------- SD DATALOG -------------------------- //
@@ -691,13 +662,13 @@ if (record_home == false) {
       sd = millis(); 
      
       if (sd_ok == true and sd_writing == true) {
+        dataFile = SD.open(namebuff, FILE_WRITE);
         dataFile.println(mainSD); 
+        dataFile.close();
       }
-   
-    
-   } 
+    } 
   }
- }
+}
  
 else {
 
@@ -707,7 +678,9 @@ else {
       sd = millis(); 
 
       if (sd_ok == true) { 
+        dataFile = SD.open(namebuff, FILE_WRITE);
         dataFile.println(mainSD); 
+        dataFile.close();
     }   
    }
   }
@@ -726,7 +699,9 @@ void flight_state() {
     Serial.println(mainTLM); 
     
     if (sd_ok == true and sd_writing == true) {
-      dataFile.println(mainSD); 
+      dataFile = SD.open(namebuff, FILE_WRITE);
+      dataFile.println(mainSD);
+      dataFile.close(); 
     }
      
    prev_mode = flight_mode;  
@@ -989,13 +964,13 @@ void applycmd()  {
         switch (rc_mode) {
           
           case 0: 
-          servo_left = roll_man; 
-          servo_right = 3000-roll_man; 
+          servo_right = roll_man; 
+          servo_left = 3000-roll_man; 
           break; 
 
           case 1:
-          servo_left = roll_man-500; 
-          servo_right = 2500-roll_man;
+          servo_right = roll_man-500; 
+          servo_left = 2500-roll_man;
    
           servo_left  = servo_left+(pitch_man-1500); 
           servo_right = servo_right+(pitch_man-1500); 
@@ -1004,17 +979,13 @@ void applycmd()  {
           if (servo_left>(servo_man_min+10)) { 
             servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
           }
-          else {
-            servo_left = servo_left_max; 
-          }
+          else { servo_left = servo_left_max; }
 
           servo_right = constrain(servo_right, servo_man_min, servo_man_max);
           if (servo_right>(servo_man_min+10)) {
             servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
           }
-          else { 
-            servo_right = servo_right_max;   
-          } 
+          else { servo_right = servo_right_max; } 
           break; 
 
           case 2: 
@@ -1023,19 +994,19 @@ void applycmd()  {
           break; 
         }
       }
-      else { servo_left = 1500; servo_right = 1500; }  
+      else { servo_left = 1000; servo_right = 1000; }  
     break; 
 
     case 8: 
       switch (rc_mode) {
           case 0: 
-          servo_left = roll_man; 
-          servo_right = 3000-roll_man; 
+          servo_right = roll_man; 
+          servo_left = 3000-roll_man; 
           break; 
 
           case 1:
-          servo_left = roll_man; 
-          servo_right = 3000-roll_man; 
+          servo_right = roll_man-500; 
+          servo_left = 2500-roll_man;
    
           servo_left  = servo_left+(pitch_man-1500); 
           servo_right = servo_right+(pitch_man-1500); 
@@ -1044,17 +1015,13 @@ void applycmd()  {
           if (servo_left>(servo_man_min+10)) { 
             servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
           }
-          else {
-            servo_left = servo_left_max; 
-          }
+          else { servo_left = servo_left_max; }
 
           servo_right = constrain(servo_right, servo_man_min, servo_man_max);
           if (servo_right>(servo_man_min+10)) {
             servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
           }
-          else { 
-            servo_right = servo_right_max;   
-          }
+          else { servo_right = servo_right_max; }
           break; 
 
           case 2: 
@@ -1069,35 +1036,37 @@ void applycmd()  {
     case 5: 
     
       if (autopilot_mode == 0) { 
-        servo_left = steer_auto; 
-        servo_right = 3000-steer_auto; 
+        servo_right = steer_auto; 
+        servo_left = 3000-steer_auto; 
       }
       
-      else {
-        
-        if (steer_auto < 1450) {
-         servo_left = map(steer_auto, 1000, 1500, 2000, servo_left_start);
-         servo_right = servo_right_max;
+      else if (autopilot_mode == 1) {
+        servo_right = steer_auto-500; 
+        servo_left = 2500-steer_auto; 
+          
+        servo_left = constrain(servo_left, servo_auto_min, servo_auto_max); 
+        if (servo_left>(servo_auto_min+10)) { 
+          servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
         }
-           
-        else if (steer_auto > 1550) { 
-         servo_right = map(steer_auto, 2000, 1500, 2000, servo_right_start);
-         servo_left = servo_left_max; 
-        }
-        
-        else if ((steer_auto>1450) and (steer_auto<1550)) { 
+        else {
           servo_left = servo_left_max; 
-          servo_right = servo_right_max; 
         }
-        
+
+        servo_right = constrain(servo_right, servo_man_min, servo_man_max);
+        if (servo_right>(servo_auto_min+10)) {
+          servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
+        }
+        else { 
+          servo_right = servo_right_max;   
+        }
       } 
     break;
   
     case 2: 
     case 3: 
     case 4: 
-      servo_left = 1500; 
-      servo_right = 1500; 
+      servo_left = 1000; 
+      servo_right = 1000; 
     break; 
     
   }
@@ -1404,6 +1373,7 @@ void getconfig() {
 
   if (!SD.begin(chipSelect)) { sd_ok = false; }
   else {
+    sd_ok = true; 
     File configFile = SD.open("config.txt", FILE_READ);
     if (configFile) {
 
@@ -1443,30 +1413,13 @@ void getconfig() {
       }
       last_waypoint_number = i+1; 
       configFile.close();
-      /*
-      for (unsigned int j(0); j<17; j++) {
-        Serial.print(waypoint[j].latitude); Serial.print(", ");
-        Serial.print(waypoint[j].longitude); Serial.print(", ");
-        Serial.println(waypoint[j].radius); 
-      }
-      */ 
     }
   }  
 }
 
 void navigation() {
 
-  bool skipp = false; 
-
-  /* 
-  while (Serial.available()) { 
-    char cmd_next = Serial.read(); 
-    if (cmd_next == 'N') {
-      skipp = true; 
-    }
-  }
-  */
-  
+  bool skipp = false;   
   
   if (nav_waypoint == true) {
     if ((TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint[waypoint_number].radius) or (skipp == true)) { 
@@ -1477,4 +1430,34 @@ void navigation() {
       }
     }   
   } 
+}
+
+void loop_time_cmpt() {
+if (loop_time_count >= 100) {
+    loop_time_min_glob = loop_time_min_loc;
+    loop_time_max_glob = loop_time_max_loc;
+    loop_time_min_loc = 999; 
+    loop_time_max_loc = 999; 
+    loop_time_mean = (micros()-tlooptime)/100;
+    tlooptime = micros(); 
+    loop_time_count = 0; 
+  }
+
+  else if (loop_time_count < 100) {
+    if (loop_time<loop_time_min_loc) {loop_time_min_loc = loop_time; }
+    if (loop_time>loop_time_max_loc) {loop_time_max_loc = loop_time; }
+    loop_time_count++; 
+  }
+
+ 
+  if (loop_time<250000) {watchdog.reset(); crash_count = 0; }
+  if (loop_time>250000) { 
+    crash_count = (crash_count + 1); 
+    if (crash_count<=15) { watchdog.reset(); }
+    else { 
+    reboot_state = 1; 
+    EEPROM.put(0, reboot_state);
+    EEPROM.put(120, millis()); 
+    }
+  }
 }
