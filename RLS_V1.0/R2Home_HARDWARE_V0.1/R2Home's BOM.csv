@@ -1,4 +1,4 @@
-Name;Part Number;Order Qty. ;Link 
+﻿Name;Part Number;Order Qty. ;Link 
 Onboard Computer ;;;
 JST-GH PCB Connector;BM02B-GHS-TBT;10;https://www.aliexpress.com/item/4000492364443.html
 JST-GH PCB Connector;SM02B-GHS-TB;10;https://www.aliexpress.com/item/4000492364443.html
@@ -12,23 +12,19 @@ JST-HX PCB Connector;S2B-XH-A;10;https://fr.aliexpress.com/item/10000014303828.h
 5V Linear Voltage Regulator ;L7805ABV ;2;
 5-35V to 7-9V Buck Converter Breakout;;2;http://www.mateksys.com/?portfolio=mbec6s
 5-35V to 5-6V Buck Converter Breakout;;2;https://shop.iflight-rc.com/quad-parts-cat20/electronics-cat27/accessories-cat137/micro-2-8s-bec-5v-12v-output-pro747
-Capacitor 10µF 16V 5*12mm;;5;
+Capacitor 10¬µF 16V 5*12mm;;5;
 Female Standart 2.54mm Header >24*1;;2;
 Male Standart 2.54mm Header > 3*1;;3;
 Trough Hole Transistor Resistance ;;;
-;;;
-;;;
 ;;;
 Sensors ;;;
 GPS (& Compass) ;Matek M8Q-5883;1;http://www.mateksys.com/?portfolio=m8q-5883
 Barometer;BMP280;1;
 ;;;
-;;;
 Servos ;;;
 Steering Servo;Parallax 360 Feedback;3;
 Steering Servo Microcontroller;Seeduino Xiao;3;
 Deployment Servo ;Metal Gear 9g servo ;1;
-;;;
 ;;;
 User Interface ;;;
 Buzzer;5V Passive Buzzer;1;
