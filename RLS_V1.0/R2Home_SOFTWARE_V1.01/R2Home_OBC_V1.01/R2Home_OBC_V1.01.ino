@@ -12,7 +12,7 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
-#define buzzer_turn     true  // Buzzer sounds as function of the turn command 
+#define buzzer_turn     false // Buzzer sounds as function of the turn command 
 #define no_init         false // Skip init, for testing only purposes 
 #define rc_mode         1     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
@@ -242,6 +242,8 @@ int loop_time_count = 0;
 int delaySD = 100;    // Datalog 
 int delayTLM = 1000;   // Tlm 
 
+bool reboot_cmd = false; 
+
 
 // WATCHDOG // 
 Watchdog watchdog;
@@ -311,6 +313,7 @@ void setup() {
     EEPROM.get(70, baro_set);
     EEPROM.get(90, time_number);
     EEPROM.get(120, reboot_time);
+    EEPROM.get(160, waypoint_number);
 
     flight_rebooted = true; 
   }
@@ -689,7 +692,6 @@ else {
 
 // ----------------------------------------------------- State machine ----------------------------------------------------- //
 
-
 void flight_state() {
 
   if (flight_mode != prev_mode) { 
@@ -878,7 +880,9 @@ void ready_steady() {
 
 //------------------- 2 -------------------//
 
-void flight_ascent() { if (vspeed<0.5) {flight_mode = 1; strip.setBrightness(255);}  }
+void flight_ascent() { 
+  if (vspeed<0.5) {flight_mode = 1; strip.setBrightness(255);}  
+}
 
 //------------------- 3 -------------------//
 
@@ -922,7 +926,11 @@ void flight_gliding_manual() {
 
 //------------------- 7 -------------------//
 
-void landed() { if ((baro_stab == false) or (gps_stab == false)) {flight_mode = 1; strip.setBrightness(255);} }
+void landed() { 
+  if ((baro_stab == false) or (gps_stab == false)) {
+    flight_mode = 1; strip.setBrightness(255);
+  } 
+ }
 
 //------------------- 8 -------------------//
 
@@ -944,9 +952,7 @@ void motorised_auto() {
 //------------------- 10 -------------------//
 
 void motorised_failSafe() { 
-  
   navigation(); 
-  
   if (failSafe == false) { flight_mode = 8; }
 }
 // ----------------------------------------------------- Apply command ----------------------------------------------------- //
@@ -1419,7 +1425,19 @@ void getconfig() {
 
 void navigation() {
 
-  bool skipp = false;   
+  bool skipp = false;  
+
+  /*
+  while (Serial.available()) { 
+    char memory = Serial.read(); 
+    if (memory == 'S') {
+      skipp = true; 
+    }
+    if (memory == 'W') {
+      Serial.println(waypoint_number);  
+    }
+  }
+  */
   
   if (nav_waypoint == true) {
     if ((TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B)<waypoint[waypoint_number].radius) or (skipp == true)) { 
@@ -1448,16 +1466,27 @@ if (loop_time_count >= 100) {
     if (loop_time>loop_time_max_loc) {loop_time_max_loc = loop_time; }
     loop_time_count++; 
   }
-
  
-  if (loop_time<250000) {watchdog.reset(); crash_count = 0; }
-  if (loop_time>250000) { 
+  if (loop_time<250000 and (reboot_cmd == false)) {watchdog.reset(); crash_count = 0; }
+
+  /*
+  while (Serial.available()) { 
+    char memory = Serial.read(); 
+    if (memory == 'R') {
+      reboot_cmd = true; 
+    }
+  }
+  */
+  
+  if (loop_time>250000 or (reboot_cmd == true)) { 
     crash_count = (crash_count + 1); 
-    if (crash_count<=15) { watchdog.reset(); }
+    if (crash_count<=5 and (reboot_cmd == false)) { watchdog.reset(); }
     else { 
     reboot_state = 1; 
     EEPROM.put(0, reboot_state);
     EEPROM.put(120, millis()); 
+    EEPROM.put(160, waypoint_number); 
+    delay(2000); 
     }
   }
 }
