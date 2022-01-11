@@ -568,8 +568,10 @@ void datacmpt() {
   String lon_B_text = String(lon_B,5);
 
   String next_cog_text = String(next_cog); 
+  String waypoint_text = String(waypoint_number); 
+  String waypoint_distance = String(TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B));
       
-  String nav_text = merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+setPoint_Home_text+","+errHome_text+","+raterror_text+","+next_cog_text+","+cmd_mult_text+","+lat_B_text+","+lon_B_text;  
+  String nav_text = merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+setPoint_Home_text+","+errHome_text+","+raterror_text+","+next_cog_text+","+cmd_mult_text+","+lat_B_text+","+lon_B_text+","+waypoint_text+","+waypoint_distance;  
 
   String a_text = String(channels[0]);
   String b_text = String(channels[1]);
@@ -791,8 +793,6 @@ void flight_init() {
     else if ((nav_waypoint == true) and (nav_home == false)) {
       lat_B = waypoint[waypoint_number].latitude; 
       lon_B = waypoint[waypoint_number].longitude; 
-  
-      waypoint_number++; 
     }
 
     initialised = true; 
@@ -1357,7 +1357,7 @@ void newfile() {
     dataFile = SD.open(namebuff, FILE_WRITE);
     delay(10); 
     if (dataFile) {  
-      dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Loopmin (µS), Loopmax (µS), Loopmean (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Next_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
+      dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Loopmin (µS), Loopmax (µS), Loopmean (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Next_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), WaypointNumber (text), Distance (m), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
       dataFile.close();
       EEPROM.put(90, time_number);
     }
