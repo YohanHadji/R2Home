@@ -129,7 +129,7 @@ int cam = 23;
 int sw = 22; 
 int crash_count = 0; 
 int cells = 0; 
-boolean armed = false;  
+bool armed = false;  
 
 // NAV //   
 movingAvg rc(2); 
@@ -789,7 +789,7 @@ void flight_init() {
 
  if (reboot_state !=1) { 
   
-  if (((gps.satellites.value() >= 6) and (gps_ok == true) and (gps_stab == true) and (millis()>5000)) or (no_init == true)) {
+  if ((gps.satellites.value()>=6 and gps_ok and (gps_stab or (gps.satellites.value()>=6 and millis()>300000)) and millis()>5000) or no_init) {
    
     EasyBuzzer.beep(3000,100,50,10,500,1);
 
@@ -808,8 +808,6 @@ void flight_init() {
       lat_B = waypoint[waypoint_number].latitude; 
       lon_B = waypoint[waypoint_number].longitude; 
     }
-
-    initialised = true; 
 
     EEPROM.put(10, dep_altitude);
     EEPROM.put(30, lat_B);
@@ -835,19 +833,20 @@ void flight_init() {
     strip.setBrightness(255);
     setcam(1); 
   
-    if (record_home == false) { newfile(); }   
+    if ((record_home == false) and (initialised == false)) { newfile(); }   
 
     if (drop == true) { flight_mode = 1;}
     else { flight_mode = 8; }
 
     init_time = millis(); 
+    initialised = true; 
          
   }
  }
 
  else { 
  
-  if ((gps.satellites.value() >= 6) and (gps_ok == true) and (millis()>5000)) {
+  if (gps.satellites.value()>=6 and gps_ok and millis()>5000) {
    
     EasyBuzzer.beep(3000,100,50,10,500,1);
     initialised = true; 
@@ -887,7 +886,7 @@ void ready_steady() {
    
   if (vspeed>vup)    { flight_mode = 2; EasyBuzzer.beep(1000,100,50,2,500,1); strip.setBrightness(255);  }
   if (vspeed<vdown)  { flight_mode = 3; EasyBuzzer.beep(3000,100,50,3,500,1); strip.setBrightness(255); } 
-  if ((atof(fix_type.value()) < 2) and (no_init == false))  { flight_mode = 0; EasyBuzzer.beep(700,100,50,3,500,1);  strip.setBrightness(255);  }
+  if ((atof(fix_type.value()) < 2) and (no_init == false))  { flight_mode = 0; EasyBuzzer.beep(700,100,50,3,500,1);  strip.setBrightness(255); }
  
  }
 } 
