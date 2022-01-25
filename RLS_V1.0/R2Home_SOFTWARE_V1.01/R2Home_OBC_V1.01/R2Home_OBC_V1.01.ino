@@ -12,20 +12,21 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
-#define buzzer_turn     true  // Buzzer sounds as function of the turn command 
-#define buzzer_sweep    true  // Buzzer turn on steroïds, should be easier to understand his tricky language ^^
+#define buzzer_turn     false // Buzzer sounds as function of the turn command 
+#define buzzer_sweep    false // Buzzer turn on steroïds, should be easier to understand his tricky language ^^
 #define no_init         false // Skip init, for testing only purposes 
 #define rc_mode         1     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
 #define autopilot_mode  1     // Control linear or with "hands up"
-#define drop            false // R2Home's version, drop or motorised
+#define drop            true  // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
-#define dep_alt         100   // m above ground  
+#define dep_alt         20000 // m above ground  
 #define vup             2     // m/s 
 #define vdown           -2    // m/s
 #define gps_freq        5     // Hz
 #define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
 #define nav_home        false // Should it go home after the waypoint sequence? 
 #define sd_writing      true  // Should it write on the SD card or not? 
+#define low_rate        false // Dataloging at 1HZ instead of 20Hz, for balloon flight 
 
 #define time_out 300
 
@@ -651,8 +652,9 @@ void datacmpt() {
     case 5:
     case 6: 
     case 8:
-    case 9:  
-    delaySD = 50;
+    case 9: 
+    if (low_rate) { delaySD = 1000; }
+    else { delaySD = 50; }
     delayTLM = 1000;  
     break;
       
