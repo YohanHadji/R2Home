@@ -12,21 +12,24 @@
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
+#define test_dir_rc     false // Use channels 0 on the radio to test the direction of the autopilot and the servos, i_want_to_fly should be set true too. 
 #define buzzer_turn     false // Buzzer sounds as function of the turn command 
 #define buzzer_sweep    false // Buzzer turn on steroïds, should be easier to understand his tricky language ^^
 #define no_init         false // Skip init, for testing only purposes 
-#define rc_mode         1     // 0 = only roll, 1 = pitch and roll mixed, 2 = pitch and roll separated
-#define autopilot_mode  1     // Control linear or with "hands up"
-#define drop            true  // R2Home's version, drop or motorised
+#define rc_mode         1     // only roll (0), pitch and roll mixed (1), pitch and roll separated (2)
+#define control_mode    1     // neutral position at the center (0) or with "hands up" (1) 
+#define linear_mode     0     // command is linear (0), or linear but with a large deadband set using servo_start etc (1)
+#define drop            false // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         20000 // m above ground  
 #define vup             2     // m/s 
 #define vdown           -2    // m/s
 #define gps_freq        5     // Hz
-#define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
-#define nav_home        false // Should it go home after the waypoint sequence? 
+#define nav_waypoint    false // Doing the waypoint sequence before reaching home? 
+#define nav_home        true  // Should it go home after the waypoint sequence? 
 #define sd_writing      true  // Should it write on the SD card or not? 
-#define low_rate        false // Dataloging at 1HZ instead of 20Hz, for balloon flight 
+#define low_rate        false // Dataloging at low HZ (if true) instead of 20Hz, for balloon flight 
+#define led_model       0     // Big led = 1, small led = 0. 
 
 #define time_out 300
 
@@ -49,6 +52,10 @@
 #define servo_right_min 2000 
 #define servo_right_start 1300
 #define servo_right_max 1000
+
+#define trig 10
+#define left_offset 100
+#define right_offset 100 
 
 #define gliding_timer 2500
 
@@ -159,6 +166,7 @@ struct gps_location {
 };
 
 gps_location waypoint[17]; 
+
 int waypoint_number = 0; 
 int last_waypoint_number = 0; 
 
@@ -298,6 +306,15 @@ void setup() {
   if (drop == true) { deploy.attach(8, 1000, 2000); } 
   else              { esc.attach(8, 1000, 2000);    }
 
+  tone(buzzer, 523); 
+  delay(200); 
+  tone(buzzer, 582); 
+  delay(200); 
+  tone(buzzer, 762); 
+  delay(200); 
+  noTone(buzzer);
+
+  watchdog.enable(Watchdog::TIMEOUT_1S);
   getconfig(); 
   bmp.begin(baro_adress); 
   
@@ -310,14 +327,6 @@ void setup() {
   strip.begin();           
   strip.show();            
   strip.setBrightness(255);
-
-  tone(buzzer, 523); 
-  delay(200); 
-  tone(buzzer, 582); 
-  delay(200); 
-  tone(buzzer, 762); 
-  delay(300); 
-  noTone(buzzer);
 
   EEPROM.get(0, reboot_state);
 
@@ -333,8 +342,11 @@ void setup() {
     flight_rebooted = true; 
   }
 
- watchdog.enable(Watchdog::TIMEOUT_1S);
- 
+  tone(buzzer, 582); 
+  delay(200); 
+  tone(buzzer, 830); 
+  delay(300); 
+  noTone(buzzer);
 }
 
 void loop() {
@@ -445,23 +457,29 @@ void datacmpt() {
    
       if (new_cog == true) {
         
-        raterror = getangle((last_errHome+180),(errHome+180))*gps_freq ; raterror = rs.reading(raterror); 
-        ratecog  = getangle(prev_cog_b,gps.course.deg())*gps_freq;       ratecog  = rc.reading(ratecog);
+        raterror = getangle(last_errHome+180,errHome+180)*gps_freq; 
+        //raterror = rs.reading(raterror); 
         
-        float PIDsum = ((NKp*errHome)+(NKd*raterror)); 
+        ratecog  = getangle(prev_cog_b,gps.course.deg())*gps_freq;       
+        //ratecog  = rc.reading(ratecog);
+        
+        float PIDsum = (NKp*errHome)+(NKd*raterror); 
         
         //cmd_mult = (0.09999996 + (1 - 0.09999996)/(1 + pow(((abs(ratecog))/49.54231),24.26521))); cmd_mult = mult.reading(cmd_mult*1000); cmd_mult = (cmd_mult/1000); 
 
         cmd_mult = 1;  
         cmdHome  = PIDsum*cmd_mult ;
         
-        if (vspeed<-5) { spiral = true; } 
-        if (vspeed>-3) { spiral = false; } 
+        if (vspeed<vdown-5) { spiral = true; } 
+        if (vspeed>vdown-3) { spiral = false; } 
         if (spiral == true) { cmdHome = 0; }
     
         new_cog = false;
         last_errHome = errHome; 
         prev_cog_b = gps.course.deg(); 
+
+        float cmdRate = cmdHome-ratecog; 
+        
 
         steer_auto = map(cmdHome, -180, +180, 1000, 2000); 
         steer_auto = constrain(steer_auto, servo_auto_min, servo_auto_max);  
@@ -653,7 +671,7 @@ void datacmpt() {
     case 6: 
     case 8:
     case 9: 
-    if (low_rate) { delaySD = 1000; }
+    if (low_rate) { delaySD = 200; }
     else { delaySD = 50; }
     delayTLM = 1000;  
     break;
@@ -981,116 +999,78 @@ void applycmd()  {
     case 0: 
     case 1: 
     case 6: 
+    case 8: 
       if (failSafe == false) { 
+        
+        // ---------- Stage 1 - RC mode ---------- // 
         switch (rc_mode) {
           
-          case 0: 
+          case 0: // roll only 
           servo_right = roll_man; 
           servo_left = 3000-roll_man; 
           break; 
 
-          case 1:
-          servo_right = roll_man-500; 
-          servo_left = 2500-roll_man;
-   
+          case 1: // pitch and roll mixed 
+          servo_right = roll_man; 
+          servo_left = 3000-roll_man;
           servo_left  = servo_left+(pitch_man-1500); 
           servo_right = servo_right+(pitch_man-1500); 
-          
-          servo_left = constrain(servo_left, servo_man_min, servo_man_max); 
-          if (servo_left>(servo_man_min+10)) { 
-            servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
-          }
-          else { servo_left = servo_left_max; }
-
-          servo_right = constrain(servo_right, servo_man_min, servo_man_max);
-          if (servo_right>(servo_man_min+10)) {
-            servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
-          }
-          else { servo_right = servo_right_max; } 
           break; 
 
-          case 2: 
+          case 2: // pitch and roll separated
           servo_left = roll_man; 
           servo_right = pitch_man;
           break; 
         }
       }
-      else { servo_left = 1000; servo_right = 1000; }  
+      else { 
+        if (control_mode == 1) { servo_left = 1000; servo_right = 1000; }
+        else { servo_left = 1500; servo_right = 1500; } 
+      }
     break; 
-
-    case 8: 
-      switch (rc_mode) {
-          case 0: 
-          servo_right = roll_man; 
-          servo_left = 3000-roll_man; 
-          break; 
-
-          case 1:
-          servo_right = roll_man-500; 
-          servo_left = 2500-roll_man;
-   
-          servo_left  = servo_left+(pitch_man-1500); 
-          servo_right = servo_right+(pitch_man-1500); 
-          
-          servo_left = constrain(servo_left, servo_man_min, servo_man_max); 
-          if (servo_left>(servo_man_min+10)) { 
-            servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
-          }
-          else { servo_left = servo_left_max; }
-
-          servo_right = constrain(servo_right, servo_man_min, servo_man_max);
-          if (servo_right>(servo_man_min+10)) {
-            servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
-          }
-          else { servo_right = servo_right_max; }
-          break; 
-
-          case 2: 
-          servo_left = roll_man; 
-          servo_right = pitch_man;
-          break; 
-        }
-    break;
 
     case 9:
     case 10: 
     case 5: 
-    
-      if (autopilot_mode == 0) { 
-        servo_right = steer_auto; 
-        servo_left = 3000-steer_auto; 
-      }
-      
-      else if (autopilot_mode == 1) {
-        servo_right = steer_auto-500; 
-        servo_left = 2500-steer_auto; 
-          
-        servo_left = constrain(servo_left, servo_auto_min, servo_auto_max); 
-        if (servo_left>(servo_auto_min+10)) { 
-          servo_left = map(servo_left, 1000, 2000, servo_left_start, 2000);
-        }
-        else {
-          servo_left = servo_left_max; 
-        }
-
-        servo_right = constrain(servo_right, servo_man_min, servo_man_max);
-        if (servo_right>(servo_auto_min+10)) {
-          servo_right = map(servo_right, 1000, 2000, servo_right_start, 2000);
-        }
-        else { 
-          servo_right = servo_right_max;   
-        }
-      } 
-    break;
-  
-    case 2: 
-    case 3: 
-    case 4: 
-      servo_left = 1000; 
-      servo_right = 1000; 
+    servo_right = steer_auto; 
+    servo_left = 3000-steer_auto; 
     break; 
-    
   }
+
+  // ---------- Stage 2 - Linear mode ---------- // 
+  switch (linear_mode) {
+          
+    case 0: // control is fully linear 
+    break; 
+
+    case 1: // control start at servo_start with an offset 
+    if (servo_left>(1500+trig)) { 
+        servo_left = map(servo_left, 1500, 2000, 1500+left_offset, 2000);
+    }
+    else if (servo_left<(1500-trig)) { 
+        servo_left = map(servo_left, 1500, 1000, 1500-left_offset, 1000);
+    }
+    if (servo_right>(1500+trig)) { 
+        servo_right = map(servo_right, 1500, 2000, 1500+right_offset, 2000);
+    }
+    else if (servo_left<(1500-trig)) { 
+        servo_right = map(servo_right, 1500, 1000, 1500-right_offset, 1000);
+    }
+    break; 
+  }
+
+  // ---------- Stage 3 - Control mode ---------- // 
+  switch (control_mode) {
+          
+    case 0: // neutral is center 
+    break; 
+
+    case 1: // neutral is hands up 
+    servo_right = constrain(map(servo_right, 1500, 2000, 1000, 2000), 1000, 2000);
+    servo_left = constrain(map(servo_left, 1500, 2000, 1000, 2000), 1000, 2000);
+    break; 
+  }
+  
 // -------------------------- Deployment Servo and ESC -------------------------- //
 
   switch(flight_mode) { 
@@ -1235,15 +1215,14 @@ void userinter() {
 // ----------------------------------------------------- Misc Functions ----------------------------------------------------- //
 
 void setled(int a, int b, int c, int d, int e) { 
-  
-  
-  
+ 
   if (batt_critical == true) { a = 255; b = 0; c = 0; d = 25; e = 50; }
   if (batt_low == true) { a = 255; b = 0; c = 0; d = 25; e = 200; }
 
   if ((millis()-lastled)>=e) { 
     lastled = millis(); 
-    colorWipe(strip.Color(a,b,c), 0);
+    if (led_model == 1) { colorWipe(strip.Color(b,a,c), 0); }
+    else { colorWipe(strip.Color(a,b,c), 0); }
     duration = d; 
     timeled = millis(); 
  }
@@ -1446,6 +1425,9 @@ void sim() {
   sim_cmd_time = (millis()*(PI/10000));
   sim_cmd = sin(sim_cmd_time); 
   sim_cmd = map(sim_cmd, -1, 1, -180, 180); 
+  if (test_dir_rc) {
+    sim_cmd = map(roll_man, 1000, 2000, -180, 180);
+  } 
 }
 
 void eppclear() { 
@@ -1455,7 +1437,7 @@ void eppclear() {
 
 void getconfig() {
 
-  if (!SD.begin(chipSelect)) { sd_ok = false; }
+  if (!SD.begin(chipSelect)) { sd_ok = false; delay(1500); }
   else {
     sd_ok = true; 
     File configFile = SD.open("config.txt", FILE_READ);
@@ -1497,6 +1479,9 @@ void getconfig() {
       }
       last_waypoint_number = i+1; 
       configFile.close();
+    }
+    else { 
+      delay(1500) ;
     }
   }  
 }
