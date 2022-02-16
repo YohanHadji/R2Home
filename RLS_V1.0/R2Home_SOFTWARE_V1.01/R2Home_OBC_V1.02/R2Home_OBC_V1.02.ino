@@ -9,7 +9,6 @@
 #include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
 
-
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
