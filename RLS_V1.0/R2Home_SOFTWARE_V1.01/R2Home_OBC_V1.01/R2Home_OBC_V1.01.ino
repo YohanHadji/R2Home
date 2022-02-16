@@ -9,7 +9,6 @@
 #include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
 
-
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
 #define i_want_to_fly   false // Simulated servo movement to test the servo movement :)) 
@@ -19,7 +18,7 @@
 #define no_init         false // Skip init, for testing only purposes 
 #define rc_mode         1     // only roll (0), pitch and roll mixed (1), pitch and roll separated (2)
 #define control_mode    1     // neutral position at the center (0) or with "hands up" (1) 
-#define linear_mode     0     // command is linear (0), or linear but with a large deadband set using servo_start etc (1)
+#define linear_mode     1     // command is linear (0), or linear but with a large deadband set using servo_start etc (1)
 #define drop            false // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         20000 // m above ground  
@@ -40,23 +39,11 @@
 #define blow 3.5
 #define no_batt 4.0 
 
-#define servo_man_min 1000
-#define servo_man_max 2000 
-
-#define servo_auto_min 1000 
-#define servo_auto_max 2000
-
-#define servo_left_min 2000 
-#define servo_left_start 1300
-#define servo_left_max 1000
-
-#define servo_right_min 2000 
-#define servo_right_start 1300
-#define servo_right_max 1000
+#define servo_max 1900
 
 #define trig 10
-#define left_offset 100
-#define right_offset 100 
+#define left_offset 150
+#define right_offset 150 
 
 #define gliding_timer 2500
 
@@ -67,7 +54,8 @@ int cog_count = 2;
 
 // NAV PIDs // 
 float NKp = 1; 
-float NKd = 0; 
+float NKd = 0.1; 
+float NKi = 
 
 double long sim_cmd_time = 0; 
 float sim_cmd = 0; 
@@ -372,7 +360,6 @@ void loop() {
 
 }
 
-
 void getdata() { 
 
   // -------------------------- Get GPS -------------------------- // 
@@ -480,10 +467,9 @@ void datacmpt() {
         prev_cog_b = gps.course.deg(); 
 
         float cmdRate = cmdHome-ratecog; 
-        
 
         steer_auto = map(cmdHome, -180, +180, 1000, 2000); 
-        steer_auto = constrain(steer_auto, servo_auto_min, servo_auto_max);  
+        steer_auto = constrain(steer_auto, 1000, 2000);  
      
     }    
   }
@@ -601,11 +587,11 @@ void datacmpt() {
   String lat_B_text = String(lat_B,5);
   String lon_B_text = String(lon_B,5);
 
-  String next_cog_text = String(next_cog); 
+  String ratecog_text = String(ratecog); 
   String waypoint_text = String(waypoint_number); 
   String waypoint_distance = String(TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B));
       
-  String nav_text = merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+setPoint_Home_text+","+errHome_text+","+raterror_text+","+next_cog_text+","+cmd_mult_text+","+lat_B_text+","+lon_B_text+","+waypoint_text+","+waypoint_distance;  
+  String nav_text = merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+setPoint_Home_text+","+errHome_text+","+raterror_text+","+ratecog_text+","+cmd_mult_text+","+lat_B_text+","+lon_B_text+","+waypoint_text+","+waypoint_distance;  
 
   String a_text = String(channels[0]);
   String b_text = String(channels[1]);
@@ -1046,16 +1032,16 @@ void applycmd()  {
 
     case 1: // control start at servo_start with an offset 
     if (servo_left>(1500+trig)) { 
-        servo_left = map(servo_left, 1500, 2000, 1500+left_offset, 2000);
+        servo_left = map(servo_left, 1500, 2000, 1500+left_offset, servo_max);
     }
     else if (servo_left<(1500-trig)) { 
-        servo_left = map(servo_left, 1500, 1000, 1500-left_offset, 1000);
+        servo_left = map(servo_left, 1500, 1000, 1500-left_offset, servo_max);
     }
     if (servo_right>(1500+trig)) { 
-        servo_right = map(servo_right, 1500, 2000, 1500+right_offset, 2000);
+        servo_right = map(servo_right, 1500, 2000, 1500+right_offset, servo_max);
     }
     else if (servo_left<(1500-trig)) { 
-        servo_right = map(servo_right, 1500, 1000, 1500-right_offset, 1000);
+        servo_right = map(servo_right, 1500, 1000, 1500-right_offset, servo_max);
     }
     break; 
   }
@@ -1067,8 +1053,8 @@ void applycmd()  {
     break; 
 
     case 1: // neutral is hands up 
-    servo_right = constrain(map(servo_right, 1500, 2000, 1000, 2000), 1000, 2000);
-    servo_left = constrain(map(servo_left, 1500, 2000, 1000, 2000), 1000, 2000);
+    servo_right = constrain(map(servo_right, 1500, servo_max, 1000, servo_max), 1000, servo_max);
+    servo_left = constrain(map(servo_left, 1500, servo_max, 1000, servo_max), 1000, servo_max);
     break; 
   }
   
@@ -1293,6 +1279,8 @@ boolean cog_valid(int a) {
 }
 
 float getangle(float a, float b) { 
+
+  /*
   float angle = 0; 
   if (abs(a-b) < 180) { angle = (b-a);}
   else { 
@@ -1300,6 +1288,12 @@ float getangle(float a, float b) {
     else { angle = (360) + (b-a);}
   }
   return angle;  
+  */
+
+  float angle = 0; 
+  angle = (((b-a)+180)%360)-180; 
+  return angle; 
+  
 }
 
 void setcam(int a) {  
@@ -1415,7 +1409,7 @@ void newfile() {
     dataFile = SD.open(namebuff, FILE_WRITE);
     delay(10); 
     if (dataFile) {  
-      dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Loopmin (µS), Loopmax (µS), Loopmean (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Next_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), WaypointNumber (text), Distance (m), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
+      dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Loopmin (µS), Loopmax (µS), Loopmean (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Rate_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), WaypointNumber (text), Distance (m), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
       dataFile.close();
       EEPROM.put(90, time_number);
     }
