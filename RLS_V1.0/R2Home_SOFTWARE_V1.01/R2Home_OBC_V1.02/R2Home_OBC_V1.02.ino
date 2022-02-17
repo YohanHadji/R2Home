@@ -8,6 +8,7 @@
 #include <movingAvg.h>
 #include <Adafruit_NeoPixel.h>
 #include <EEPROM.h>
+#include <PID_v1.h>
 
 // ----------------------------------- SETUP PANEL ----------------------------------- // 
 
@@ -39,21 +40,10 @@
 #define blow 3.5
 #define no_batt 4.0 
 
-#define servo_man_min 1000
-#define servo_man_max 2000 
+#define servo_max_m 1900
+#define servo_max_c 1550
 
-#define servo_auto_min 1000 
-#define servo_auto_max 2000
-
-#define servo_left_min 2000 
-#define servo_left_start 1300
-#define servo_left_max 1000
-
-#define servo_right_min 2000 
-#define servo_right_start 1300
-#define servo_right_max 1000
-
-#define trig 10
+#define trig 20
 #define left_offset 100
 #define right_offset 100 
 
@@ -64,9 +54,16 @@
 int dep_altitude = dep_alt; 
 int cog_count = 2;  
 
+double Setpoint, Input, Output;
+
+
 // NAV PIDs // 
 float NKp = 1; 
-float NKd = 0; 
+float NKi = 0.05; 
+float NKd = 0.1; 
+
+PID myPID(&Input, &Output, &Setpoint,NKp, NKi, NKd, DIRECT);
+
 
 double long sim_cmd_time = 0; 
 float sim_cmd = 0; 
@@ -158,6 +155,7 @@ float next_cog = 0;
 float ratecog = 0; 
 float prev_cog_b = 0;
 float cmd_mult = 0;  
+float cruise_cmd = 0; 
 
 struct gps_location { 
   double latitude = 0; 
@@ -341,6 +339,10 @@ void setup() {
 
     flight_rebooted = true; 
   }
+  
+  myPID.SetTunings(NKp, NKi, NKd);
+  myPID.SetOutputLimits(-180, 180);
+  myPID.SetMode(MANUAL);
 
   tone(buzzer, 582); 
   delay(200); 
@@ -370,7 +372,6 @@ void loop() {
   loop_time_cmpt(); 
 
 }
-
 
 void getdata() { 
 
@@ -444,8 +445,11 @@ void datacmpt() {
   if (gps.course.isUpdated()) {  
     new_cog = true;                                                 
     if (cog_valid(cog_count) == true) {
-      cog_ok = true;                                                    
-      setPoint_Home = TinyGPSPlus::courseTo(gps.location.lat(),gps.location.lng(),lat_B,lon_B);  
+      cog_ok = true;  
+      if (flight_mode != 11) {                                              
+        setPoint_Home = TinyGPSPlus::courseTo(gps.location.lat(),gps.location.lng(),lat_B,lon_B);  
+      }
+      else { setPoint_Home = cruise_cmd; }
       errHome = getangle(gps.course.deg(), setPoint_Home);                                    
     }
     else { cog_ok = false; last_errHome = errHome; }                                                                 
@@ -458,38 +462,40 @@ void datacmpt() {
       if (new_cog == true) {
         
         raterror = getangle(last_errHome+180,errHome+180)*gps_freq; 
-        //raterror = rs.reading(raterror); 
+        ratecog  = getangle(prev_cog_b,gps.course.deg())*gps_freq; 
+        last_errHome = errHome; 
+        prev_cog_b = gps.course.deg(); 
+        new_cog = false;      
         
-        ratecog  = getangle(prev_cog_b,gps.course.deg())*gps_freq;       
-        //ratecog  = rc.reading(ratecog);
-        
-        float PIDsum = (NKp*errHome)+(NKd*raterror); 
-        
-        //cmd_mult = (0.09999996 + (1 - 0.09999996)/(1 + pow(((abs(ratecog))/49.54231),24.26521))); cmd_mult = mult.reading(cmd_mult*1000); cmd_mult = (cmd_mult/1000); 
+        float PIDsum = (NKp*errHome)+(NKd*raterror);
 
-        cmd_mult = 1;  
-        cmdHome  = PIDsum*cmd_mult ;
+        Input = -errHome; 
+        Setpoint = 0; 
+        myPID.Compute();
+
+        //cmdHome  = PIDsum
+        cmdHome = Output; 
         
         if (vspeed<vdown-5) { spiral = true; } 
         if (vspeed>vdown-3) { spiral = false; } 
         if (spiral == true) { cmdHome = 0; }
-    
-        new_cog = false;
-        last_errHome = errHome; 
-        prev_cog_b = gps.course.deg(); 
 
-        float cmdRate = cmdHome-ratecog; 
-        
+        if ((TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B))<10) {
+          myPID.SetOutputLimits(-120, 120);
+        }
 
-        steer_auto = map(cmdHome, -180, +180, 1000, 2000); 
-        steer_auto = constrain(steer_auto, servo_auto_min, servo_auto_max);  
-     
+        if ((TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B))>10) {
+          myPID.SetOutputLimits(-180, 180);
+        }
     }    
   }
   
- else { steer_auto = 1500; }
+  else { cmdHome = 0; }
 
- if (i_want_to_fly == true) { 
+  steer_auto = map(cmdHome, -180, +180, 1000, 2000); 
+  steer_auto = constrain(steer_auto, 1000, 2000);  
+
+  if (i_want_to_fly == true) { 
   flight_mode = 5; 
   steer_auto = map(sim_cmd, -180, +180, 1000, 2000); 
  }
@@ -497,24 +503,23 @@ void datacmpt() {
    
 // -------------------- Vertical Speed -------------------- //
 
- if (new_baro == true) { 
+  if (new_baro == true) { 
   
-  new_baro = false; 
+    new_baro = false; 
   
-  if ((initialised == false) and (reboot_state != 1)) { baro_set = (baro_set + ((0-alt_baro)/100)); }
-  if (millis()<=5000) { alt_baro = 0; } 
+    if ((initialised == false) and (reboot_state != 1)) { baro_set = (baro_set + ((0-alt_baro)/100)); }
+    if (millis()<=5000) { alt_baro = 0; } 
   
-  float da = (alt_baro - prev_alt);
+    float da = (alt_baro - prev_alt);
   
-  if (abs(da) < 50) {
-  float vps = (da/(dt/1000));
-  vspeed = vs.reading(vps*100); 
-  vspeed = (vspeed/100);
-  } 
-  
-  prev_alt = alt_baro; 
-
-}
+    if (abs(da) < 50) {
+    float vps = (da/(dt/1000));
+    vspeed = vs.reading(vps*100); 
+    vspeed = (vspeed/100);
+    } 
+    
+    prev_alt = alt_baro; 
+  }
 
 // -------------------- Alt Fusion -------------------- //
 
@@ -600,11 +605,11 @@ void datacmpt() {
   String lat_B_text = String(lat_B,5);
   String lon_B_text = String(lon_B,5);
 
-  String next_cog_text = String(next_cog); 
+  String ratecog_text = String(ratecog); 
   String waypoint_text = String(waypoint_number); 
   String waypoint_distance = String(TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B));
       
-  String nav_text = merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+setPoint_Home_text+","+errHome_text+","+raterror_text+","+next_cog_text+","+cmd_mult_text+","+lat_B_text+","+lon_B_text+","+waypoint_text+","+waypoint_distance;  
+  String nav_text = merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+setPoint_Home_text+","+errHome_text+","+raterror_text+","+ratecog_text+","+cmd_mult_text+","+lat_B_text+","+lon_B_text+","+waypoint_text+","+waypoint_distance;  
 
   String a_text = String(channels[0]);
   String b_text = String(channels[1]);
@@ -800,6 +805,11 @@ void flight_state() {
       motorised_failSafe(); 
       setled(0, 255, 255, 25, 500);
     break; 
+
+    case 11: 
+      motorised_cruise(); 
+      setled(0, 255, 255, 25, 500);
+    break; 
     
   }
 }
@@ -969,8 +979,9 @@ void landed() {
 
 void motorised_man() {
 
-  if (channels[6] > 1000) { flight_mode = 9; if (record_home == true) {newfile();} } 
-  if (failSafe == true) { flight_mode = 10; if (record_home == true) {newfile();} }
+  if (channels[6] > 1000) { flight_mode = 9; if (record_home == true) {newfile();} myPID.SetMode(AUTOMATIC); } 
+  else if (channels[5] > 1000) { flight_mode = 11; cruise_cmd = gps.course.deg(); if (record_home == true) {newfile();} }
+  if (failSafe == true) { flight_mode = 10; if (record_home == true) {newfile();} myPID.SetMode(AUTOMATIC); }
 }
 
 //------------------- 9 -------------------//
@@ -978,7 +989,6 @@ void motorised_man() {
 void motorised_auto() { 
   
   navigation(); 
-  
   if (channels[6] < 1000) { flight_mode = 8; }
 }
 
@@ -986,8 +996,23 @@ void motorised_auto() {
 
 void motorised_failSafe() { 
   navigation(); 
-  if (failSafe == false) { flight_mode = 8; }
+  if (failSafe == false) { flight_mode = 8; myPID.SetMode(MANUAL); }
 }
+
+//------------------- 11 -------------------//
+
+void motorised_cruise() {
+  if (channels[5] < 1000) { flight_mode = 8; myPID.SetMode(MANUAL); }
+  
+  float incr = map(channels[0], 67, 1982, -1000, 1000);
+  if (abs(incr)<50) { incr = 0; }
+  incr = incr/10000.0;
+  
+  cruise_cmd = cruise_cmd + incr; 
+  cruise_cmd = (int(cruise_cmd*1000.0)%360000)/1000.0;
+  Serial.println(cruise_cmd); 
+}
+
 // ----------------------------------------------------- Apply command ----------------------------------------------------- //
 
 void applycmd()  { 
@@ -1030,12 +1055,15 @@ void applycmd()  {
     break; 
 
     case 9:
-    case 10: 
+    case 10:
+    case 11: 
     case 5: 
     servo_right = steer_auto; 
     servo_left = 3000-steer_auto; 
     break; 
   }
+
+  
 
   // ---------- Stage 2 - Linear mode ---------- // 
   switch (linear_mode) {
@@ -1045,19 +1073,26 @@ void applycmd()  {
 
     case 1: // control start at servo_start with an offset 
     if (servo_left>(1500+trig)) { 
-        servo_left = map(servo_left, 1500, 2000, 1500+left_offset, 2000);
+        //Serial.println("1"); 
+        servo_left = map(servo_left, 1500, 2000, 1500+left_offset, servo_max_m);
     }
-    else if (servo_left<(1500-trig)) { 
-        servo_left = map(servo_left, 1500, 1000, 1500-left_offset, 1000);
+    else if (servo_left<(1500-trig)) {
+        //Serial.println("2");  
+        servo_left = map(servo_left, 1000, 1500, 1000, 1500-left_offset);
     }
     if (servo_right>(1500+trig)) { 
-        servo_right = map(servo_right, 1500, 2000, 1500+right_offset, 2000);
+        //Serial.println("3"); 
+        servo_right = map(servo_right, 1500, 2000, 1500+right_offset, servo_max_m);
     }
-    else if (servo_left<(1500-trig)) { 
-        servo_right = map(servo_right, 1500, 1000, 1500-right_offset, 1000);
+    else if (servo_right<(1500-trig)) { 
+        //Serial.println("4"); 
+        servo_right = map(servo_right, 1000, 1500, 1000, 1500-right_offset);
     }
     break; 
   }
+
+  //Serial.print(servo_left); Serial.print(", "); Serial.println(servo_right);
+  
 
   // ---------- Stage 3 - Control mode ---------- // 
   switch (control_mode) {
@@ -1066,8 +1101,8 @@ void applycmd()  {
     break; 
 
     case 1: // neutral is hands up 
-    servo_right = constrain(map(servo_right, 1500, 2000, 1000, 2000), 1000, 2000);
-    servo_left = constrain(map(servo_left, 1500, 2000, 1000, 2000), 1000, 2000);
+    servo_right = constrain(map(servo_right, 1500, servo_max_m, 1000, servo_max_m), 1000, servo_max_c);
+    servo_left = constrain(map(servo_left, 1500, servo_max_m, 1000, servo_max_m), 1000, servo_max_c);
     break; 
   }
   
@@ -1298,7 +1333,7 @@ float getangle(float a, float b) {
     if ((a-b) < 0) { angle = (-360) +(b-a);}
     else { angle = (360) + (b-a);}
   }
-  return angle;  
+  return angle;    
 }
 
 void setcam(int a) {  
@@ -1414,7 +1449,7 @@ void newfile() {
     dataFile = SD.open(namebuff, FILE_WRITE);
     delay(10); 
     if (dataFile) {  
-      dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Loopmin (µS), Loopmax (µS), Loopmean (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Next_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), WaypointNumber (text), Distance (m), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
+      dataFile.println("time (ms), Packet_Count (text), Mode (text), GPS_Ok (text), COG_Ok (text), FailSafe (text), GPS_Stab (text), Baro_Stab (text), Deployed (text), Wing_Opened (text), Initialised (tex), Vbatt (V), Loopmin (µS), Loopmax (µS), Loopmean (µS), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Vertical_Speed (m/s), Altitude (m), Baro_Weight (text), GPS_Weight (text), SetPoint_Home (deg), Err_Home (deg), Rate_Error (deg), Rate_Cog (deg), Cmd_mult (text), LatB (deg), LonB (deg), WaypointNumber (text), Distance (m), Ch 0 (µs), Ch 1 (µs), Ch 2 (µs), Ch 3 (µs), Ch 4 (µs), Ch 5 (µs), Ch 6 (µs), PWM_L (µs), PWM_R (µs), PWM_D (µs)");
       dataFile.close();
       EEPROM.put(90, time_number);
     }
