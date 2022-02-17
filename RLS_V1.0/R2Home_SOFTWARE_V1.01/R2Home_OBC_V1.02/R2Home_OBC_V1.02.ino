@@ -48,7 +48,6 @@
 #define right_offset 100 
 
 #define gliding_timer 2500
-
 #define waypoint_threshold 10 // Distance to waypoint before going to the next waypoint 
 
 int dep_altitude = dep_alt; 
