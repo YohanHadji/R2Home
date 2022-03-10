@@ -20,17 +20,21 @@
 #define rc_mode         1     // only roll (0), pitch and roll mixed (1), pitch and roll separated (2)
 #define control_mode    1     // neutral position at the center (0) or with "hands up" (1) 
 #define linear_mode     0     // command is linear (0), or linear but with a large deadband set using servo_start etc (1)
-#define drop            false // R2Home's version, drop or motorised
+#define drop            true  // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
-#define dep_alt         20000 // m above ground  
-#define vup             2     // m/s 
-#define vdown           -2    // m/s
+#define dep_alt         25000 // m above ground  
+#define vup             3     // m/s 
+#define vdown           -5    // m/s
 #define gps_freq        5     // Hz
-#define nav_waypoint    false // Doing the waypoint sequence before reaching home? 
-#define nav_home        true  // Should it go home after the waypoint sequence? 
+#define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
+#define nav_home        false // Should it go home after the waypoint sequence? 
 #define sd_writing      true  // Should it write on the SD card or not? 
 #define low_rate        false // Dataloging at low HZ (if true) instead of 20Hz, for balloon flight 
 #define led_model       0     // Big led = 1, small led = 0. 
+#define cam_cycle       true  // If true, camera will only be powered on for 20s every 10min, used to save battery on long HAB flight 
+#define safe_trigger    true  // For HAB flight, will use a safer, but slower methode to detect apogee and transision to descent mode 
+
+#define descent_timer 5  // Code will check for x times every second that the vertical speed is lower than threshold to trigger descent mode 
 
 #define time_out 300
 
@@ -47,7 +51,7 @@
 #define left_offset 100
 #define right_offset 100 
 
-#define gliding_timer 2500
+#define gliding_timer 5000
 #define waypoint_threshold 10 // Distance to waypoint before going to the next waypoint 
 
 int dep_altitude = dep_alt; 
@@ -78,8 +82,10 @@ float vspeed = 0;
 float baro_set = 1000; 
 float baro_count = 0; 
 int vspeed_count = 0;
-boolean new_baro = false;
+bool new_baro = false;
 float dt = 0; 
+bool stable_descent = false; 
+int descent_count = 0; 
 movingAvg al(5); 
 movingAvg vs(5); 
 
@@ -103,7 +109,6 @@ float prev_gps = 0;
 boolean new_gps = false; 
 boolean cog_ok = 0; 
 boolean new_cog = false; 
-
 
 // LED // 
 #define LED_PIN     3
@@ -134,6 +139,10 @@ int sw = 22;
 int crash_count = 0; 
 int cells = 0; 
 bool armed = false;  
+bool camIsOn = false;
+bool camReady = false; 
+int onDuration = 0; 
+int offDuration = 0; 
 
 // NAV //   
 movingAvg rc(2); 
@@ -247,6 +256,8 @@ unsigned long t_turn = 0;
 unsigned long tlooptime = 0; 
 unsigned long mes = 0; 
 unsigned long last_waypoint_time = 0; 
+unsigned long camOn = 0; 
+unsigned long camOff = 0; 
 
 unsigned long long reboot_time = 0; 
 
@@ -348,6 +359,7 @@ void setup() {
   tone(buzzer, 830); 
   delay(300); 
   noTone(buzzer);
+
 }
 
 void loop() {
@@ -536,8 +548,11 @@ void datacmpt() {
   if ((millis()-tstab) >= 1000) { 
     tstab = millis(); 
     
-    if (vspeed < 0.2 and vspeed > -0.2) { vspeed_count = (vspeed_count + 1); }
+    if (abs(vspeed) < 0.2) { vspeed_count = (vspeed_count + 1); }
     else { vspeed_count = 0; }
+
+    if (abs(vspeed)>(-vdown)) { descent_count = (descent_count + 1); }
+    else { descent_count = 0; }
 
     if (abs(prev_gps-gps.altitude.meters())<1 and (gps.altitude.meters() != 0)) { gps_count = (gps_count + 1); }
     else { gps_count = 0; } 
@@ -549,6 +564,9 @@ void datacmpt() {
     
     if (vspeed_count >= 10) { baro_stab = true; }
     else { baro_stab = false; }
+
+    if (descent_count >= descent_timer) { stable_descent = true; }
+    else { stable_descent = false; }
 
     if (gps_count >= 10) { gps_stab = true; } 
     else { gps_stab = false; } 
@@ -842,27 +860,20 @@ void flight_init() {
     EEPROM.put(30, lat_B);
     EEPROM.put(50, lon_B);
 
-    while (abs(alt_baro-gps.altitude.meters())>0.01) {
-      if ((micros()-baro_blk)>10) { 
-        baro_blk = millis();
-        alt_baro = (bmp.readAltitude(baro_set));
-        baro_set = (baro_set + ((gps.altitude.meters()-alt_baro)/8));
-        prev_alt = alt_baro; 
-        watchdog.reset();
-      }
-    }
-
-    EEPROM.put(70, baro_set);
+    baroset(); 
 
     vs.reset(); 
     al.reset(); 
   
-    dep_altitude = (dep_altitude+gps.altitude.meters());
+    if (no_init == false) { 
+      dep_altitude = (dep_altitude+gps.altitude.meters());
+    }
 
     strip.setBrightness(255);
-    setcam(1); 
+    setcam(1, 60, 60); 
   
     if ((record_home == false) and (initialised == false)) { newfile(); }   
+    Serial.println("created new file"); 
 
     if (drop == true) { flight_mode = 1;}
     else { flight_mode = 8; }
@@ -884,7 +895,7 @@ void flight_init() {
     al.reset(); 
   
     strip.setBrightness(50);
-    setcam(1); 
+    setcam(1, 60, 60); 
       
     if (drop == true) { flight_mode = 1;}
     else { flight_mode = 8; }
@@ -912,11 +923,33 @@ void flight_init() {
 void ready_steady() { 
 
  if (millis()-init_time>=1000) { 
-   
-  if (vspeed>vup)    { flight_mode = 2; EasyBuzzer.beep(1000,100,50,2,500,1); strip.setBrightness(255);  }
-  if (vspeed<vdown)  { flight_mode = 3; EasyBuzzer.beep(3000,100,50,3,500,1); strip.setBrightness(255); } 
-  if ((atof(fix_type.value()) < 2) and (no_init == false))  { flight_mode = 0; EasyBuzzer.beep(700,100,50,3,500,1);  strip.setBrightness(255); }
- 
+
+  if (vspeed>vup)    { 
+    flight_mode = 2; 
+    EasyBuzzer.beep(1000,100,50,2,500,1); 
+    strip.setBrightness(255); 
+    setcam(1, 20, 600); 
+  }
+  
+  if (safe_trigger and stable_descent) { 
+    flight_mode = 3; 
+    EasyBuzzer.beep(3000,100,50,3,500,1); 
+    strip.setBrightness(255); 
+    setcam(1, 60, 600); 
+  } 
+  else if (vspeed<vdown) { 
+    flight_mode = 3; 
+    EasyBuzzer.beep(3000,100,50,3,500,1); 
+    strip.setBrightness(255); 
+    setcam(1, 60, 600); 
+  } 
+  
+  if ((atof(fix_type.value()) < 2) and (no_init == false))  { 
+    flight_mode = 0; 
+    EasyBuzzer.beep(700,100,50,3,500,1);  
+    strip.setBrightness(255); 
+  }
+  
  }
 } 
 
@@ -931,7 +964,7 @@ void flight_ascent() {
 void flight_descent() { 
   
   if (vspeed>-0.5) {flight_mode = 1; strip.setBrightness(255);} 
-  if (merged_alt < dep_altitude) { flight_mode = 4; EasyBuzzer.beep(3000,100,50,5,500,1); strip.setBrightness(255); deployed = true; init_time = millis(); }
+  if (merged_alt < dep_altitude) { flight_mode = 4; EasyBuzzer.beep(3000,100,50,5,500,1); strip.setBrightness(255); deployed = true; init_time = millis(); setcam(1, 60, 600); }
      
  }   
 
@@ -939,11 +972,21 @@ void flight_descent() {
 
 void flight_gliding() {
 
-  if (((millis()-init_time) >= gliding_timer) or (vspeed > (vdown+1))) { 
-  wing_opened = true; 
-  last_errHome = errHome; 
-  if (failSafe == true) {flight_mode = 5; strip.setBrightness(255);} 
-  else                  {flight_mode = 6; strip.setBrightness(255);}
+  if (((millis()-init_time) >= gliding_timer) or (vspeed > (vdown+1))) {
+    wing_opened = true; 
+    last_errHome = errHome; 
+    
+    if (failSafe == true) {
+      flight_mode = 5; strip.setBrightness(255); 
+      setcam(1, 20, 600); 
+      myPID.SetMode(AUTOMATIC);
+    } 
+    
+    else {
+      flight_mode = 6; 
+      strip.setBrightness(255);
+      myPID.SetMode(MANUAL);
+    }
   } 
 }
 
@@ -951,9 +994,10 @@ void flight_gliding() {
 
 void flight_gliding_auto() { 
   
-  if (failSafe == false) {flight_mode = 6;}  
-  if (vspeed < -6) { spiral = true; } 
-  if (vspeed > -5) { spiral = false; } 
+  if (failSafe == false) {
+    flight_mode = 6;
+    myPID.SetMode(MANUAL);
+  }  
 
   if (i_want_to_fly == true) { spiral = false; flight_mode = 5; } 
   
@@ -963,7 +1007,10 @@ void flight_gliding_auto() {
 //------------------- 6 -------------------//
 
 void flight_gliding_manual() { 
-  if (failSafe == true) {flight_mode = 5;}  
+  if (failSafe == true) {
+    flight_mode = 5;
+    myPID.SetMode(AUTOMATIC);
+  }  
 }
 
 //------------------- 7 -------------------//
@@ -978,9 +1025,23 @@ void landed() {
 
 void motorised_man() {
 
-  if (channels[6] > 1000) { flight_mode = 9; if (record_home == true) {newfile();} myPID.SetMode(AUTOMATIC); } 
-  else if (channels[5] > 1000) { flight_mode = 11; cruise_cmd = gps.course.deg(); if (record_home == true) {newfile();} }
-  if (failSafe == true) { flight_mode = 10; if (record_home == true) {newfile();} myPID.SetMode(AUTOMATIC); }
+  if (channels[6] > 1000) { 
+    flight_mode = 9; 
+    if (record_home == true) { newfile();} 
+    myPID.SetMode(AUTOMATIC); 
+  } 
+  
+  else if (channels[5] > 1000) { 
+    flight_mode = 11; 
+    cruise_cmd = gps.course.deg(); 
+    if (record_home == true) {newfile();} 
+  }
+  
+  if (failSafe == true) { 
+    flight_mode = 10; 
+    if (record_home == true) {newfile();} 
+    myPID.SetMode(AUTOMATIC); 
+  }
 }
 
 //------------------- 9 -------------------//
@@ -994,14 +1055,22 @@ void motorised_auto() {
 //------------------- 10 -------------------//
 
 void motorised_failSafe() { 
-  navigation(); 
-  if (failSafe == false) { flight_mode = 8; myPID.SetMode(MANUAL); }
+  
+  navigation();
+   
+  if (failSafe == false) { 
+    flight_mode = 8; 
+    myPID.SetMode(MANUAL); 
+  }
 }
 
 //------------------- 11 -------------------//
 
 void motorised_cruise() {
-  if (channels[5] < 1000) { flight_mode = 8; myPID.SetMode(MANUAL); }
+  if (channels[5] < 1000) { 
+    flight_mode = 8; 
+    myPID.SetMode(MANUAL); 
+  }
   
   float incr = map(channels[0], 67, 1982, -1000, 1000);
   if (abs(incr)<50) { incr = 0; }
@@ -1100,8 +1169,8 @@ void applycmd()  {
     break; 
 
     case 1: // neutral is hands up 
-    servo_right = constrain(map(servo_right, 1500, servo_max_m, 1000, servo_max_m), 1000, servo_max_c);
-    servo_left = constrain(map(servo_left, 1500, servo_max_m, 1000, servo_max_m), 1000, servo_max_c);
+    servo_right = constrain(map(servo_right, 1500, 2000, 1000, servo_max_m), 1000, servo_max_c);
+    servo_left = constrain(map(servo_left, 1500, 2000, 1000, servo_max_m), 1000, servo_max_c);
     break; 
   }
   
@@ -1118,10 +1187,10 @@ void applycmd()  {
     case 5: 
     case 6:
     case 7: 
-     if (deployed == true) { servo_deploy = 1500; }
+     if (deployed == true) { servo_deploy = 1000; }
      else {
        if (failSafe == true) { servo_deploy = 2000; } 
-       else { servo_deploy = map(channels[6], 50, 1950, 1000, 2000);}
+       else { servo_deploy = map(channels[6], 50, 1950, 2000, 1000);}
       } 
    break; 
 
@@ -1244,6 +1313,10 @@ void userinter() {
 
   updateled(); 
 
+// -------------------------- Camera -------------------------- //
+
+  updatecam(); 
+
 } 
 
 // ----------------------------------------------------- Misc Functions ----------------------------------------------------- //
@@ -1335,14 +1408,50 @@ float getangle(float a, float b) {
   return angle;    
 }
 
-void setcam(int a) {  
+void setcam(int a, int b, int c) {  
   switch(a) { 
+    
     case 1 : 
     digitalWrite(cam, HIGH); 
-    break; 
+    camOn = millis(); 
+    onDuration = (b+4)*1000; 
+    offDuration = c*1000;
+    camIsOn = true; 
+    break;
+     
     case 0 : 
     digitalWrite(cam, LOW); 
+    camOff = millis(); 
+    onDuration = (b+4)*1000; 
+    offDuration = c*1000; 
+    camIsOn = false; 
     break;    
+  }
+  camReady = true; 
+}
+
+void updatecam() {
+  
+  if (cam_cycle) {
+    
+    if (camReady) {
+      
+      switch (camIsOn) {  
+          
+        case true:
+          if ((millis()-camOn)>onDuration) {
+            setcam(0, (onDuration/1000)-4, offDuration/1000); 
+          }
+        break;
+        
+        case false:
+          if ((millis()-camOff)>offDuration) {
+            setcam(1, (onDuration/1000)-4, offDuration/1000); 
+          }
+        break;
+        
+      }
+    }
   }
 }
 
@@ -1350,6 +1459,20 @@ void dateTime(uint16_t* date, uint16_t* time){
   
   *date = FAT_DATE(gps.date.year(), gps.date.month(), gps.date.day());
   *time = FAT_TIME(gps.time.hour(), gps.time.minute(), gps.time.second());
+}
+
+void baroset() { 
+  while (abs(alt_baro-gps.altitude.meters())>0.01) {
+      if ((micros()-baro_blk)>10) { 
+        baro_blk = millis();
+        alt_baro = (bmp.readAltitude(baro_set));
+        baro_set = (baro_set + ((gps.altitude.meters()-alt_baro)/8));
+        prev_alt = alt_baro; 
+        watchdog.reset();
+      }
+    }
+
+    EEPROM.put(70, baro_set);
 }
 
 void gpset(int a, int b, int c, int d, int e){
