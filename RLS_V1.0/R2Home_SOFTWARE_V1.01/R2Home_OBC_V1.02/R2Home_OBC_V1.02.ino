@@ -22,17 +22,18 @@
 #define linear_mode     0     // command is linear (0), or linear but with a large deadband set using servo_start etc (1)
 #define drop            true  // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
-#define dep_alt         25000 // m above ground  
+#define dep_alt         100   // m above ground  
 #define vup             3     // m/s 
-#define vdown           -5    // m/s
+#define vdown           -3    // m/s
 #define gps_freq        5     // Hz
-#define nav_waypoint    true  // Doing the waypoint sequence before reaching home? 
-#define nav_home        false // Should it go home after the waypoint sequence? 
+#define nav_waypoint    false // Doing the waypoint sequence before reaching home? 
+#define nav_home        true  // Should it go home after the waypoint sequence? 
 #define sd_writing      true  // Should it write on the SD card or not? 
 #define low_rate        false // Dataloging at low HZ (if true) instead of 20Hz, for balloon flight 
 #define led_model       0     // Big led = 1, small led = 0. 
-#define cam_cycle       true  // If true, camera will only be powered on for 20s every 10min, used to save battery on long HAB flight 
-#define safe_trigger    true  // For HAB flight, will use a safer, but slower methode to detect apogee and transision to descent mode 
+#define cam_cycle       false // If true, camera will only be powered on for 20s every 10min, used to save battery on long HAB flight 
+#define safe_trigger    false // For HAB flight, will use a safer, but slower methode to detect apogee and transision to descent mode 
+#define cog_brake       false // Will reduce command if CoG is turning faster than a threshold
 
 #define descent_timer 5  // Code will check for x times every second that the vertical speed is lower than threshold to trigger descent mode 
 
@@ -44,14 +45,14 @@
 #define blow 3.5
 #define no_batt 4.0 
 
-#define servo_max_m 1900
-#define servo_max_c 1550
+#define servo_max_m 2000 // m for map
+#define servo_max_c 1550 // c for constrain 
 
 #define trig 20
 #define left_offset 100
 #define right_offset 100 
 
-#define gliding_timer 5000
+#define gliding_timer 3000
 #define waypoint_threshold 10 // Distance to waypoint before going to the next waypoint 
 
 int dep_altitude = dep_alt; 
@@ -109,6 +110,7 @@ float prev_gps = 0;
 boolean new_gps = false; 
 boolean cog_ok = 0; 
 boolean new_cog = false; 
+float ground_altitude = 0; 
 
 // LED // 
 #define LED_PIN     3
@@ -141,6 +143,7 @@ int cells = 0;
 bool armed = false;  
 bool camIsOn = false;
 bool camReady = false; 
+bool flight_started = false;
 int onDuration = 0; 
 int offDuration = 0; 
 
@@ -484,8 +487,20 @@ void datacmpt() {
         Setpoint = 0; 
         myPID.Compute();
 
-        //cmdHome  = PIDsum
-        cmdHome = Output; 
+        if (cog_brake) { 
+          cmd_mult = (0.09999996 + (1 - 0.09999996)/(1 + pow(((abs(ratecog))/49.54231),24.26521))); 
+          cmd_mult = mult.reading(cmd_mult*1000); 
+          cmd_mult = (cmd_mult/1000);
+        }
+        else { 
+          cmd_mult = 1.0;  
+        }
+
+        //cmdHome  = cmd_mult*PIDsum
+        cmdHome = cmd_mult*Output; 
+
+       
+
         
         if (vspeed<vdown-5) { spiral = true; } 
         if (vspeed>vdown-3) { spiral = false; } 
@@ -869,6 +884,8 @@ void flight_init() {
       dep_altitude = (dep_altitude+gps.altitude.meters());
     }
 
+    ground_altitude = gps.altitude.meters(); 
+   
     strip.setBrightness(255);
     setcam(1, 60, 60); 
   
@@ -944,12 +961,12 @@ void ready_steady() {
     setcam(1, 60, 600); 
   } 
   
-  if ((atof(fix_type.value()) < 2) and (no_init == false))  { 
+  if ((atof(fix_type.value()) < 2) and (no_init == false) and (flight_started == false))  { 
     flight_mode = 0; 
     EasyBuzzer.beep(700,100,50,3,500,1);  
     strip.setBrightness(255); 
   }
-  
+   
  }
 } 
 
@@ -957,6 +974,9 @@ void ready_steady() {
 
 void flight_ascent() { 
   if (vspeed<0.5) {flight_mode = 1; strip.setBrightness(255);}  
+  if ((gps.altitude.meters()-ground_altitude)>10) {
+    flight_started = true; 
+  }
 }
 
 //------------------- 3 -------------------//
@@ -972,7 +992,7 @@ void flight_descent() {
 
 void flight_gliding() {
 
-  if (((millis()-init_time) >= gliding_timer) or (vspeed > (vdown+1))) {
+  if ((millis()-init_time) >= gliding_timer) {
     wing_opened = true; 
     last_errHome = errHome; 
     
