@@ -23,8 +23,8 @@
 #define drop            true  // R2Home's version, drop or motorised
 #define record_home     false // only record autopilot 
 #define dep_alt         100   // m above ground  
-#define vup             3     // m/s 
-#define vdown           -3    // m/s
+#define vup             1     // m/s 
+#define vdown           -1    // m/s
 #define gps_freq        5     // Hz
 #define nav_waypoint    false // Doing the waypoint sequence before reaching home? 
 #define nav_home        true  // Should it go home after the waypoint sequence? 
@@ -35,7 +35,8 @@
 #define safe_trigger    false // For HAB flight, will use a safer, but slower methode to detect apogee and transision to descent mode 
 #define cog_brake       false // Will reduce command if CoG is turning faster than a threshold
 
-#define descent_timer 5  // Code will check for x times every second that the vertical speed is lower than threshold to trigger descent mode 
+//#define descent_timer 5  Code will check for x times every second that the vertical speed is lower than threshold to trigger descent mode 
+#define gliding_timer 3000
 
 #define time_out 300
 
@@ -52,7 +53,6 @@
 #define left_offset 100
 #define right_offset 100 
 
-#define gliding_timer 3000
 #define waypoint_threshold 10 // Distance to waypoint before going to the next waypoint 
 
 int dep_altitude = dep_alt; 
@@ -60,36 +60,29 @@ int cog_count = 2;
 
 double Setpoint, Input, Output;
 
-
 // NAV PIDs // 
 float NKp = 1; 
 float NKi = 0.05; 
 float NKd = 0.1; 
 
 PID myPID(&Input, &Output, &Setpoint,NKp, NKi, NKd, DIRECT);
-
-
-double long sim_cmd_time = 0; 
-float sim_cmd = 0; 
+ 
 
 // ----------------------------------- GLOBAL VARIABLES ----------------------------------- // 
 
 // BARO // 
 Adafruit_BMP280 bmp(&Wire);
-int baro_adress = 0x00; 
+int baro_adress = 0x00;
+movingAvg baro_avg(20);  
 float alt_baro = 0;
-float prev_alt = 0; 
-float vspeed = 0; 
 float baro_set = 1000; 
-float baro_count = 0; 
-int vspeed_count = 0;
-bool new_baro = false;
-float dt = 0; 
-bool stable_descent = false; 
-int descent_count = 0; 
-movingAvg al(5); 
-movingAvg vs(5); 
-
+bool new_baro_alt = false;
+float baro_vspeed = 0; 
+float prev_alt_baro = 0; 
+unsigned long prev_time_baro = 0; 
+unsigned long stable_baro_timer = 0;
+int stable_baro_alt_since = 0; 
+int baro_count = 0; 
 
 // BATTERY // 
 movingAvg voltage(50);  
@@ -102,15 +95,26 @@ boolean batt_low = false;
 TinyGPSPlus gps;
 TinyGPSCustom fix_type(gps, "GNGSA", 2);
 movingAvg rs(1); 
+movingAvg gps_vs_time(10); 
 unsigned char serial2bufferRead[1000];
-float prev_cog = 0;
-int gps_count = 0; 
-int valid_count = 0; 
-float prev_gps = 0; 
+float prev_cog = 0;  
 boolean new_gps = false; 
 boolean cog_ok = 0; 
 boolean new_cog = false; 
 float ground_altitude = 0; 
+int valid_count = 0; 
+
+bool new_gps_alt = false;
+float gps_vspeed = 0; 
+float prev_alt_gps = 0; 
+unsigned long prev_time_gps = 0;
+unsigned long stable_gps_timer = 0;  
+int stable_gps_alt_since = 0;  
+
+bool new_merged_alt = false;
+float merged_vspeed = 0; 
+float prev_alt_merged = 0; 
+unsigned long prev_time_merged = 0; 
 
 // LED // 
 #define LED_PIN     3
@@ -143,7 +147,6 @@ int cells = 0;
 bool armed = false;  
 bool camIsOn = false;
 bool camReady = false; 
-bool flight_started = false;
 int onDuration = 0; 
 int offDuration = 0; 
 
@@ -161,6 +164,7 @@ float lat_B = 0;
 float lon_B = 0; 
 float cmd = 0; 
 boolean spiral = false; 
+float sim_cmd = 0;
 float cmdHome = 1500; 
 float next_cog = 0; 
 float ratecog = 0; 
@@ -272,7 +276,6 @@ int loop_time_max_glob = 999;
 double loop_time_mean = 999; 
 int loop_time_count = 0; 
 
-
 int delaySD = 100;    // Datalog 
 int delayTLM = 1000;   // Tlm 
 
@@ -302,9 +305,8 @@ void setup() {
    
   EasyBuzzer.setPin(buzzer);
 
-  voltage.begin();
-  vs.begin(); 
-  al.begin(); 
+  baro_avg.begin(); 
+  voltage.begin(); 
   roll_steer.begin();
   pitch_steer.begin();
   rs.begin(); 
@@ -328,12 +330,8 @@ void setup() {
   watchdog.enable(Watchdog::TIMEOUT_1S);
   getconfig(); 
   bmp.begin(baro_adress); 
-  
-  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     
-  Adafruit_BMP280::SAMPLING_X1,   
-  Adafruit_BMP280::SAMPLING_X2,    
-  Adafruit_BMP280::FILTER_X16,      
-  Adafruit_BMP280::STANDBY_MS_1); 
+
+  baro_begin();
   
   strip.begin();           
   strip.show();            
@@ -368,7 +366,6 @@ void setup() {
 void loop() {
   
   tloop = micros(); 
-
   sim(); 
 
   getdata();
@@ -382,7 +379,6 @@ void loop() {
   userinter(); 
   
   loop_time = micros()-tloop;
-
   loop_time_cmpt(); 
 
 }
@@ -391,33 +387,31 @@ void getdata() {
 
   // -------------------------- Get GPS -------------------------- // 
 
- while (Serial7.available()) { gps.encode(Serial7.read()); }
+ while (Serial7.available()) { 
+  gps.encode(Serial7.read()); 
+  if (gps.altitude.isUpdated()) {
+    new_gps_alt = true; 
+  }
+ }
 
   // -------------------------- Get BARO & COMPASS -------------------------- //
 
-  if ((millis()-baroA)>=10) { 
+  if ((millis()-baroA)>=5) {
+     
     baroA = millis();
     unsigned waitd = millis(); 
-    alt_baro = al.reading(bmp.readAltitude(baro_set)*100);
+    alt_baro = bmp.readAltitude(baro_set);
+    alt_baro = baro_avg.reading(alt_baro*100.0); 
+    alt_baro = alt_baro/100.0; 
+
     if (((millis() - waitd) > 100)) { 
       EasyBuzzer.singleBeep(3000,50); 
       bmp.begin(baro_adress); 
-      bmp.setSampling(Adafruit_BMP280::MODE_NORMAL, 
-                      Adafruit_BMP280::SAMPLING_X1, 
-                      Adafruit_BMP280::SAMPLING_X2,  
-                      Adafruit_BMP280::FILTER_X16, 
-                      Adafruit_BMP280::STANDBY_MS_1); 
-    } 
-    alt_baro = (alt_baro/100);
-    baro_count = (baro_count + 1);;
-     
-    if (baro_count >= 10) { 
-      baro_count = 0; 
-      new_baro = true; 
-      dt = baroA-baroB;
-      baroB = millis(); 
-    } 
+      baro_begin(); 
+    }
+    
   }
+
 
   // -------------------------- Get RC -------------------------- //
 
@@ -498,12 +492,9 @@ void datacmpt() {
 
         //cmdHome  = cmd_mult*PIDsum
         cmdHome = cmd_mult*Output; 
-
-       
-
-        
-        if (vspeed<vdown-5) { spiral = true; } 
-        if (vspeed>vdown-3) { spiral = false; } 
+   
+        if (baro_vspeed<vdown-5) { spiral = true; } 
+        if (baro_vspeed>vdown-3) { spiral = false; } 
         if (spiral == true) { cmdHome = 0; }
 
         if ((TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),lat_B,lon_B))<10) {
@@ -526,70 +517,54 @@ void datacmpt() {
   steer_auto = map(sim_cmd, -180, +180, 1000, 2000); 
  }
   
+// -------------------- Alt Fusion -------------------- //
+
+  baro_weight = (1+(abs(baro_vspeed)/10));
+    
+  float hdo = gps.hdop.value(); 
+  float gpsw = ((50/hdo)+(gps.altitude.meters()/10000)); 
+  gps_weight = (gpsw*((abs(alt_baro-gps.altitude.meters())/10)));
+
+  float total_weight = gps_weight+baro_weight;
+  
+  merged_alt = ((alt_baro*baro_weight)+(gps.altitude.meters()*gps_weight))/(total_weight); 
+
    
 // -------------------- Vertical Speed -------------------- //
 
-  if (new_baro == true) { 
-  
-    new_baro = false; 
-  
-    if ((initialised == false) and (reboot_state != 1)) { baro_set = (baro_set + ((0-alt_baro)/100)); }
-    if (millis()<=5000) { alt_baro = 0; } 
-  
-    float da = (alt_baro - prev_alt);
-  
-    if (abs(da) < 50) {
-    float vps = (da/(dt/1000));
-    vspeed = vs.reading(vps*100); 
-    vspeed = (vspeed/100);
-    } 
-    
-    prev_alt = alt_baro; 
+  if ((initialised == false) and (reboot_state != 1)) { 
+    baro_set = (baro_set + ((0-alt_baro)/100)); 
+  }
+  if (millis()<=7500) { alt_baro = 0; }
+     
+  if (millis()-prev_time_baro>=200) {
+    new_baro_alt = false;
+    float baro_da = (alt_baro - prev_alt_baro);
+    float baro_dt = (millis() - prev_time_baro); 
+    baro_vspeed = (baro_da/(200.0/1000.0));
+    prev_alt_baro = alt_baro;
+    prev_time_baro = millis(); 
   }
 
-// -------------------- Alt Fusion -------------------- //
+  if (new_gps_alt) {
+    new_gps_alt = false; 
+    float gps_da = (gps.altitude.meters() - prev_alt_gps);
+    float gps_dt = (millis() - prev_time_gps); 
+    gps_vspeed = (gps_da/(gps_dt/1000));
+    prev_alt_gps = gps.altitude.meters(); 
+    prev_time_gps = millis(); 
+  }
 
-    baro_weight = (1+(abs(vspeed)/10));
-    
-    float hdo = gps.hdop.value(); 
-    float gpsw = ((50/hdo)+(gps.altitude.meters()/10000)); 
-    gps_weight = (gpsw*((abs(alt_baro-gps.altitude.meters())/10)));
-    
-    merged_alt = ((alt_baro*baro_weight)+(gps.altitude.meters()*gps_weight))/(baro_weight+gps_weight); 
+  if (abs(baro_vspeed) > 1) { 
+    stable_baro_timer = millis(); 
+  }
 
+  if (abs(gps_vspeed) > 1) { 
+    stable_gps_timer = millis(); 
+  }
 
-// -------------------- Stationary -------------------- //
-
-  if ((millis()-tstab) >= 1000) { 
-    tstab = millis(); 
-    
-    if (abs(vspeed) < 0.2) { vspeed_count = (vspeed_count + 1); }
-    else { vspeed_count = 0; }
-
-    if (abs(vspeed)>(-vdown)) { descent_count = (descent_count + 1); }
-    else { descent_count = 0; }
-
-    if (abs(prev_gps-gps.altitude.meters())<1 and (gps.altitude.meters() != 0)) { gps_count = (gps_count + 1); }
-    else { gps_count = 0; } 
-
-    if (gps_count >= 10) { gps_stab = true; } 
-    else if(millis()<(time_out*1000)) { gps_stab = false; } 
-    else { gps_stab = true; } 
-    
-    
-    if (vspeed_count >= 10) { baro_stab = true; }
-    else { baro_stab = false; }
-
-    if (descent_count >= descent_timer) { stable_descent = true; }
-    else { stable_descent = false; }
-
-    if (gps_count >= 10) { gps_stab = true; } 
-    else { gps_stab = false; } 
-    
-    prev_gps = gps.altitude.meters();  
-
-
-  }   
+  stable_gps_alt_since = millis()-stable_gps_timer; 
+  stable_baro_alt_since = millis()-stable_baro_timer;   
 
 // -------------------------- String -------------------------- //
   
@@ -621,7 +596,7 @@ void datacmpt() {
   String gps_text = date_time+","+lat_A_text+","+lon_A_text+","+alt_gps_text+","+cog_text+","+speed_text+","+sat_text+","+hdop_text+","+pos_age_text+","+fix_type_text;
 
   String alt_baro_text = String(alt_baro, 3);
-  String vspeed_text   = String(vspeed, 3);
+  String vspeed_text   = String(baro_vspeed, 3);
   
   String baro_text = alt_baro_text+","+vspeed_text; 
   
@@ -674,8 +649,8 @@ void datacmpt() {
   String gps_ok_text = String(gps_ok) ;
   String cog_ok_text = String(cog_ok);
   String failSafe_text = String(failSafe);
-  String gps_stab_text = String(gps_stab);
-  String baro_stab_text = String(baro_stab);
+  String gps_stab_text = String(stable_gps_alt_since);
+  String baro_stab_text = String(stable_baro_alt_since);
   String deployed_text = String(deployed);
   String wing_opened_text = String(wing_opened);
   String vbatt_text = String(vbatt, 3);
@@ -719,7 +694,7 @@ void datacmpt() {
     tlm = millis(); 
     packet_count = (packet_count +1); 
     Serial5.println(mainTLM);   
-    Serial.println(mainTLM); 
+    //Serial.println(mainTLM); 
     
     if (sd_ok == true and sd_writing == true) {
         dataFile = SD.open(namebuff, FILE_WRITE);
@@ -837,11 +812,6 @@ void flight_state() {
       motorised_failSafe(); 
       setled(0, 255, 255, 25, 500);
     break; 
-
-    case 11: 
-      motorised_cruise(); 
-      setled(0, 255, 255, 25, 500);
-    break; 
     
   }
 }
@@ -851,7 +821,7 @@ void flight_init() {
 
  if (reboot_state !=1) { 
   
-  if ((gps.satellites.value()>=6 and gps_ok and (gps_stab or (gps.satellites.value()>=6 and millis()>300000)) and millis()>5000) or no_init) {
+  if ((gps.satellites.value()>=6 and gps_ok and millis()>5000) or no_init) {
    
     EasyBuzzer.beep(3000,100,50,10,500,1);
 
@@ -876,9 +846,6 @@ void flight_init() {
     EEPROM.put(50, lon_B);
 
     baroset(); 
-
-    vs.reset(); 
-    al.reset(); 
   
     if (no_init == false) { 
       dep_altitude = (dep_altitude+gps.altitude.meters());
@@ -907,9 +874,6 @@ void flight_init() {
    
     EasyBuzzer.beep(3000,100,50,10,500,1);
     initialised = true; 
-
-    vs.reset(); 
-    al.reset(); 
   
     strip.setBrightness(50);
     setcam(1, 60, 60); 
@@ -938,55 +902,48 @@ void flight_init() {
 //------------------- 1 -------------------//
 
 void ready_steady() { 
-
  if (millis()-init_time>=1000) { 
-
-  if (vspeed>vup)    { 
+  if (baro_vspeed>vup)    { 
     flight_mode = 2; 
     EasyBuzzer.beep(1000,100,50,2,500,1); 
     strip.setBrightness(255); 
     setcam(1, 20, 600); 
   }
-  
-  if (safe_trigger and stable_descent) { 
+  else if (baro_vspeed<vdown) { 
     flight_mode = 3; 
     EasyBuzzer.beep(3000,100,50,3,500,1); 
     strip.setBrightness(255); 
     setcam(1, 60, 600); 
-  } 
-  else if (vspeed<vdown) { 
-    flight_mode = 3; 
-    EasyBuzzer.beep(3000,100,50,3,500,1); 
-    strip.setBrightness(255); 
-    setcam(1, 60, 600); 
-  } 
-  
-  if ((atof(fix_type.value()) < 2) and (no_init == false) and (flight_started == false))  { 
-    flight_mode = 0; 
-    EasyBuzzer.beep(700,100,50,3,500,1);  
-    strip.setBrightness(255); 
-  }
-   
+  }   
  }
 } 
 
 //------------------- 2 -------------------//
 
 void flight_ascent() { 
-  if (vspeed<0.5) {flight_mode = 1; strip.setBrightness(255);}  
-  if ((gps.altitude.meters()-ground_altitude)>10) {
-    flight_started = true; 
-  }
+  if (baro_vspeed<0.5) {
+    flight_mode = 1; strip.setBrightness(255);
+  }     
 }
 
 //------------------- 3 -------------------//
 
-void flight_descent() { 
+void flight_descent() {
+   
+  if (baro_vspeed>1) {
+    flight_mode = 1; 
+    strip.setBrightness(255);
+  } 
   
-  if (vspeed>-0.5) {flight_mode = 1; strip.setBrightness(255);} 
-  if (merged_alt < dep_altitude) { flight_mode = 4; EasyBuzzer.beep(3000,100,50,5,500,1); strip.setBrightness(255); deployed = true; init_time = millis(); setcam(1, 60, 600); }
-     
- }   
+  if (merged_alt < dep_altitude) { 
+    flight_mode = 4; 
+    EasyBuzzer.beep(3000,100,50,5,500,1); 
+    strip.setBrightness(255); 
+    deployed = true; 
+    init_time = millis(); 
+    setcam(1, 60, 600); 
+  }   
+}   
 
 //------------------- 4 -------------------//
 
@@ -1019,7 +976,10 @@ void flight_gliding_auto() {
     myPID.SetMode(MANUAL);
   }  
 
-  if (i_want_to_fly == true) { spiral = false; flight_mode = 5; } 
+  if (i_want_to_fly == true) { 
+    spiral = false; 
+    flight_mode = 5; 
+  } 
   
   navigation(); 
 }
@@ -1051,12 +1011,6 @@ void motorised_man() {
     myPID.SetMode(AUTOMATIC); 
   } 
   
-  else if (channels[5] > 1000) { 
-    flight_mode = 11; 
-    cruise_cmd = gps.course.deg(); 
-    if (record_home == true) {newfile();} 
-  }
-  
   if (failSafe == true) { 
     flight_mode = 10; 
     if (record_home == true) {newfile();} 
@@ -1068,8 +1022,11 @@ void motorised_man() {
 
 void motorised_auto() { 
   
-  navigation(); 
-  if (channels[6] < 1000) { flight_mode = 8; }
+  navigation();
+   
+  if (channels[6] < 1000) { 
+    flight_mode = 8; 
+  }
 }
 
 //------------------- 10 -------------------//
@@ -1082,23 +1039,6 @@ void motorised_failSafe() {
     flight_mode = 8; 
     myPID.SetMode(MANUAL); 
   }
-}
-
-//------------------- 11 -------------------//
-
-void motorised_cruise() {
-  if (channels[5] < 1000) { 
-    flight_mode = 8; 
-    myPID.SetMode(MANUAL); 
-  }
-  
-  float incr = map(channels[0], 67, 1982, -1000, 1000);
-  if (abs(incr)<50) { incr = 0; }
-  incr = incr/10000.0;
-  
-  cruise_cmd = cruise_cmd + incr; 
-  cruise_cmd = (int(cruise_cmd*1000.0)%360000)/1000.0;
-  Serial.println(cruise_cmd); 
 }
 
 // ----------------------------------------------------- Apply command ----------------------------------------------------- //
@@ -1248,6 +1188,7 @@ if (drop == true) {
     
   }
  }
+ 
 
 else {
   
@@ -1259,7 +1200,8 @@ else {
     esc.write(map(servo_esc, 1000, 2000, 0, 180));
     
   }
- } 
+ }
+ 
 }
 
 // ----------------------------------------------------- User Interface ----------------------------------------------------- //
@@ -1487,11 +1429,10 @@ void baroset() {
         baro_blk = millis();
         alt_baro = (bmp.readAltitude(baro_set));
         baro_set = (baro_set + ((gps.altitude.meters()-alt_baro)/8));
-        prev_alt = alt_baro; 
         watchdog.reset();
       }
     }
-
+    baro_avg.reset(); 
     EEPROM.put(70, baro_set);
 }
 
@@ -1599,8 +1540,8 @@ void newfile() {
 }
 
 void sim() { 
-  sim_cmd_time = (millis()*(PI/10000));
-  sim_cmd = sin(sim_cmd_time); 
+  double long sim_cmd_time = (millis()*(PI/10000));
+  float sim_cmd = sin(sim_cmd_time); 
   sim_cmd = map(sim_cmd, -1, 1, -180, 180); 
   if (test_dir_rc) {
     sim_cmd = map(roll_man, 1000, 2000, -180, 180);
@@ -1729,4 +1670,12 @@ if (loop_time_count >= 100) {
     delay(2000); 
     }
   }
+}
+
+void baro_begin() { 
+  bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     
+  Adafruit_BMP280::SAMPLING_X1,   
+  Adafruit_BMP280::SAMPLING_X16,    
+  Adafruit_BMP280::FILTER_X16,     
+  Adafruit_BMP280::STANDBY_MS_1); 
 }
