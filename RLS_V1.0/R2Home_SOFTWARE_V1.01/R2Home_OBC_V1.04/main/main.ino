@@ -69,7 +69,7 @@ void datacmpt() {
     cog_ok = true;
   }
 
-  steering = cmpt_servo(channels, cmd_to_waypoint, flight_mode, deployed, failsafe, cog_ok);
+  steering = cmpt_servo(channels, cmd_to_waypoint, flight_mode, deployed, failsafe, cog_ok, spiral);
   update_servo_cmd(steering, SERVO_RATE); 
 
   cmpt_flight_state(); 
@@ -79,7 +79,7 @@ void datacmpt() {
 
   if ((millis()-sd)>=delaySD) { 
     sd = millis(); 
-    cmpt_string_data(flight_mode, initialised, deployed, wing_opened);
+    cmpt_string_data(flight_mode, initialised, deployed, wing_opened, spiral);
     save_data(initialised);  
   }
   

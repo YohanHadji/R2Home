@@ -117,5 +117,6 @@ void get_baro(int mode) {
 String baro_text() {
   String alt_baro_text = String(alt_baro, 3);
   String baro_vspeed_text = String(baro_vspeed, 3);
-  return alt_baro_text+","+baro_vspeed_text; 
+  String baro_pressure_text = String(pressure_baro, 2); 
+  return alt_baro_text+","+baro_pressure_text+","+baro_vspeed_text; 
 }

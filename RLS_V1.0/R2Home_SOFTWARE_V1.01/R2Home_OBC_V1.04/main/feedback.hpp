@@ -178,7 +178,7 @@ void colorWipe(uint32_t color, int wait) {
   }
 }
 
-void setled(int a, int b, int c, int d, int e) { 
+void setled(int a, int b, int c, int d, unsigned int e) { 
  
   if (batt_critical == true) { a = 255; b = 0; c = 0; d = 25; e = 50; }
   if (batt_low == true) { a = 255; b = 0; c = 0; d = 25; e = 200; }

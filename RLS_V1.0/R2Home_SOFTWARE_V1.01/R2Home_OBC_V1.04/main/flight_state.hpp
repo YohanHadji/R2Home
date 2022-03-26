@@ -7,6 +7,7 @@ bool initialised  = false;
 bool flight_started = false;
 bool deployed     = false; 
 bool wing_opened  = false; 
+bool spiral = false;
 unsigned long init_time = 0; 
 
 
@@ -43,6 +44,8 @@ void flight_init() {
     b_al.reset(); 
     g_vs.reset();
 
+    cmpt_string_data(flight_mode, initialised, deployed, wing_opened, spiral);
+
     ground_altitude = gps.altitude.meters();
     dep_altitude = (DEP_ALT+ground_altitude);
   
@@ -67,7 +70,7 @@ void flight_init() {
 
 void ready_steady() { 
 
- if (millis()-init_time>=5000) { 
+ if (millis()-init_time>=3000) { 
 
   if (is_ascent(VUP, 0))    {
     flight_mode = 2; 
@@ -96,7 +99,7 @@ void ready_steady() {
 //------------------- 2 -------------------//
 
 void flight_ascent() { 
-  if (baro_vspeed<0.5) {
+  if (is_descent(0, 0)) {
     flight_mode = 1;
   }  
   if ((gps.altitude.meters()-ground_altitude)>10) {
@@ -111,6 +114,7 @@ void flight_descent() {
   if (is_ascent(0, 0)) {
     flight_mode = 1; 
   } 
+  
   if (is_descent(v_down(VDOWN), 0) and (merged_alt < dep_altitude or (millis()-init_time>DESCENT_TIMER))) { 
     flight_mode = 4;
     EasyBuzzer.beep(3000,100,50,5,500,1); 
@@ -124,7 +128,7 @@ void flight_descent() {
 
 void flight_gliding() {
 
-  if ((millis()-init_time) >= GLIDING_TIMER) {
+  if ((millis()-init_time) >= OPENING_TIMER) {
     wing_opened = true; 
     
     if (failsafe == true) {
@@ -147,6 +151,14 @@ void flight_gliding_auto() {
   if (!gps_ok) {
     flight_mode = 11;  
     myPID.SetMode(MANUAL);
+  }
+
+  if (is_descent(v_down(-5), 0)) {
+    spiral = true; 
+  }
+
+  if (is_ascent(v_down(-2), 0)) {
+    spiral = false;
   }
   
   if (failsafe == false) {

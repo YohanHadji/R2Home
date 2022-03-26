@@ -26,7 +26,7 @@ void servo_setup() {
   else              { esc.attach(8, 1000, 2000);    }
 }
 
-servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool deployed, bool failsafe, bool cog_ok) {
+servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool deployed, bool failsafe, bool cog_ok, bool spiral) {
   
   float roll  = map(channels[0], 67, 1982, 1000, 2000);
   float pitch = map(channels[1], 67, 1982, 1000, 2000);
@@ -74,7 +74,7 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
     case 9:
     case 10:
     case 5: 
-    if (cog_ok) {
+    if (cog_ok and !spiral) {
       steering_cmpt.right = autopilot; 
       steering_cmpt.left = 3000-autopilot; 
     }
@@ -169,7 +169,7 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
   return steering_cmpt;  
 }
 
-void update_servo_cmd(servo_cmd steering_apply, int a) {
+void update_servo_cmd(servo_cmd steering_apply, unsigned int a) {
    
   if ((millis()-tpwm)>=(1000/a)) {  
     tpwm = millis(); 

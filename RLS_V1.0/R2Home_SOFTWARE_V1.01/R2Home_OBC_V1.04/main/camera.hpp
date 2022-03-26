@@ -3,8 +3,8 @@
 int cam = 23;
 bool camIsOn = false;
 bool camReady = false; 
-int onDuration = 0; 
-int offDuration = 0; 
+unsigned long onDuration = 0; 
+unsigned long offDuration = 0; 
 
 unsigned long camOn = 0; 
 unsigned long camOff = 0; 

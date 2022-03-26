@@ -58,7 +58,7 @@ void cmpt_fusion() {
   }
 }
 
-bool cmpt_vertical_state() {
+void cmpt_vertical_state() {
   if (new_baro) {
     new_baro = false; 
     new_baro_fusion = true;
