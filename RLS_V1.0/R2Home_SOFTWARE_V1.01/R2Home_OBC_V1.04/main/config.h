@@ -28,11 +28,12 @@
 #define LINEAR_MODE     0     // command is linear (0), or linear but with a large deadband set using servo_start etc (1)
 #define DROP            true  // R2Home's version, drop or motorised
 
-#define DESCENT_TIMER   1000  
-#define GLIDING_TIMER   3000
-#define DEP_ALT         100   // m above ground  
-#define VUP             1     // m/s 
-#define VDOWN           -1.5    // m/s
+#define DESCENT_TIMER   15000  
+#define OPENING_TIMER   6000
+#define SPIRAL_RECOVER  5000
+#define DEP_ALT         300   // m above ground  
+#define VUP             5     // m/s 
+#define VDOWN           -6    // m/s
 
 #define NKP   1
 #define NKI   0.05

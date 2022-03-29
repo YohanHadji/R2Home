@@ -8,6 +8,7 @@ bool flight_started = false;
 bool deployed     = false; 
 bool wing_opened  = false; 
 bool spiral = false;
+unsigned long spiral_time = 0; 
 unsigned long init_time = 0; 
 
 
@@ -155,9 +156,10 @@ void flight_gliding_auto() {
 
   if (is_descent(v_down(-5), 0)) {
     spiral = true; 
+    spiral_time = millis();
   }
 
-  if (is_ascent(v_down(-2), 0)) {
+  if (millis()-spiral_time>SPIRAL_RECOVER) {
     spiral = false;
   }
   
