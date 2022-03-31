@@ -109,9 +109,14 @@ bool is_descent(int v_trigger, bool mode) {
   }   
 }
 
-float v_down(int vdown) {
-  return sqrt((baro_set*100.0)/pressure_baro)*vdown;
+float pressure_sqrt_ratio() {
+  return sqrt((baro_set*100.0)/pressure_baro);
 }
+
+float v_down(int vdown) {
+  return pressure_sqrt_ratio()*vdown;
+}
+
 
 String pos_text() {
   String merged_alt_text = String(merged_alt,3);  

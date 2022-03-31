@@ -115,8 +115,8 @@ void flight_descent() {
   if (is_ascent(0, 0)) {
     flight_mode = 1; 
   } 
-  
-  if (is_descent(v_down(VDOWN), 0) and (merged_alt < dep_altitude or (millis()-init_time>DESCENT_TIMER))) { 
+
+  if ((DEP_MODE and (millis()-init_time>DESCENT_TIMER)) or ((!DEP_MODE and merged_alt < dep_altitude))) { 
     flight_mode = 4;
     EasyBuzzer.beep(3000,100,50,5,500,1); 
     deployed = true; 

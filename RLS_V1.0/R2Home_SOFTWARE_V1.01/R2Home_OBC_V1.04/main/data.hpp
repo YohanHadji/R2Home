@@ -8,12 +8,14 @@ unsigned int delaySD = 100;    // Datalog
 unsigned int delayTLM = 1000;   // Tlm 
 
 char sdnamebuff[20]; 
+char nameconfig[30]; 
 String mainSD;
 String mainTLM;   
 String minSD; 
 
 File dataFile; 
-File configFile; 
+File configFile;
+File configSaveFile;  
 const int chipSelect = BUILTIN_SDCARD;
 char namebuff[20]; 
 unsigned int addr = 0;
@@ -89,13 +91,14 @@ void cmpt_string_data(int flight_mode, bool initialised, bool deployed, bool win
   
   String status_text = time_text+","+packet_count_text+","+flight_mode_text+","+initialised_text+","+deployed_text+","+wing_opened_text+","+gps_ok_text+","+cog_ok_text+","+spiral_text+","+failsafe_text+","+vbatt_text+","+loop_rate_text;  
   
-  mainSD = status_text+","+gps_text()+","+baro_text()+","+nav_text()+","+rc_text()+","+servo_text();
+  mainSD = status_text+","+gps_text()+","+baro_text()+","+nav_text()+","+rc_text()+","+servo_text()+","+servo_max_cmd_text();
   mainTLM = "/*"+status_text+","+gps_text()+","+baro_text()+","+servo_text()+"/*";
 }
 
 void newfile() { 
   dtostrf(time_number, 1, 0, sdnamebuff); 
   sprintf(namebuff, "%s.txt", sdnamebuff);
+  sprintf(nameconfig, "config_%s.txt", sdnamebuff);
     
   if (!SD.begin(chipSelect)) { sd_ok = false; }
   else { 
@@ -104,8 +107,17 @@ void newfile() {
     dataFile = SD.open(namebuff, FILE_WRITE);
     delay(10); 
     if (dataFile) {  
-      dataFile.println("time (ms), Packet_Count (text), Mode (text), Initialised (text), Deployed (text), Wing_Opened (text), GPS_Ok (text), COG_Ok (text), Spiral (text), FailSafe (text), Vbatt (V), Loop_rate (Hz), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Pressure (hpa), Baro_Vspeed (m/s), Altitude (m), Baro_Weight, GPS_Weight, Baro_Vspeed_AVG (m/s), GPS_Vspeed_AVG (m/s), VDOWN (m/s), SetPoint_Home (deg), Err_Home (deg), LatB (deg), LonB (deg), WaypointNumber (text), Distance (m), Ch 0 (us), Ch 1 (us), Ch 2 (us), Ch 3 (us), Ch 4 (us), Ch 5 (us), Ch 6 (us), PWM_L (us), PWM_R (us), PWM_D (us)");
+      dataFile.println("time (ms), Packet_Count (text), Mode (text), Initialised (text), Deployed (text), Wing_Opened (text), GPS_Ok (text), COG_Ok (text), Spiral (text), FailSafe (text), Vbatt (V), Loop_rate (Hz), GPS-date, GPS-time, lat (deg), lon (deg), alt (m), CoG (deg), Speed (m/s), Sat_in_use (text), HDOP (text), Position_Age (text), Fix_type (text), Baro_Alt (m), Pressure (hpa), Baro_Vspeed (m/s), Altitude (m), Baro_Weight, GPS_Weight, Baro_Vspeed_AVG (m/s), GPS_Vspeed_AVG (m/s), VDOWN (m/s), SetPoint_Home (deg), Err_Home (deg), LatB (deg), LonB (deg), WaypointNumber (text), Distance (m), Ch 0 (us), Ch 1 (us), Ch 2 (us), Ch 3 (us), Ch 4 (us), Ch 5 (us), Ch 6 (us), PWM_L (us), PWM_R (us), PWM_D (us), MAX_M_W, MAX_C_W, MAC_M, MAX_C");
       dataFile.close();
+    }
+    if (CONFIG_FILE_SV) {
+      SdFile::dateTimeCallback(dateTime);
+      configSaveFile = SD.open(nameconfig, FILE_WRITE);
+      delay(10); 
+      if (configSaveFile) {  
+        configSaveFile.println("Will be used later if we want to be able to save the configuration on startup to check what went wrong afterwards");
+        configSaveFile.close();
+      }
     }
   }
 }
