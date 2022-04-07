@@ -1,3 +1,6 @@
+// This code is V3.01
+// Updated on April 7th
+
 #include <movingAvg.h>
 #include "flight_state.hpp" 
 
