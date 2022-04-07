@@ -14,6 +14,7 @@ void navigation_setup() {
   myPID.SetTunings(NKP, NKI, NKD);
   myPID.SetOutputLimits(-180, 180);
   myPID.SetMode(MANUAL);
+  if (DEBUG) { Serial.println("PIDs set correctly"); } 
 }
 
 float cmpt_cmd(float err) {      

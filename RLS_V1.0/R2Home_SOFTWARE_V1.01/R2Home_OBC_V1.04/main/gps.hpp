@@ -27,6 +27,7 @@ void cmpt_vertical_speed_gps(float da, int dt) {
 void get_gps() {  
   
   while (GPS_PORT.available()) { 
+    if (DEBUG) { Serial.println("Got a GPS message"); } 
     gps.encode(GPS_PORT.read()); 
   }
   
@@ -135,6 +136,7 @@ if (e == 1) {
   }
 
   GPS_PORT.addMemoryForRead(serial2bufferRead, sizeof(serial2bufferRead));
+  if (DEBUG) { Serial.println("GPS was set correctly"); } 
    
 }
 

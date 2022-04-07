@@ -34,6 +34,7 @@ void setcam(int a, int b, int c) {
     break;    
   }
   camReady = true; 
+  if (DEBUG) { Serial.println("Camera was set correctly"); } 
 }
 
 void updatecam() {

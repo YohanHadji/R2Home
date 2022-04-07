@@ -49,6 +49,7 @@ void buzzer_setup() {
   tone(BUZZER_PIN, 762); 
   delay(200); 
   noTone(BUZZER_PIN);
+  if (DEBUG) { Serial.println("Buzzer was set correctly"); } 
 }
 
 void buzzer_end_setup() {
@@ -169,6 +170,7 @@ void led_setup() {
   strip.begin();           
   strip.show();            
   strip.setBrightness(255);
+  if (DEBUG) { Serial.println("LED was set correctly"); } 
 }
 
 void colorWipe(uint32_t color, int wait) {

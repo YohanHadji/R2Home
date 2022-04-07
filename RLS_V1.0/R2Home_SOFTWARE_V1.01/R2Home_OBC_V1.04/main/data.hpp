@@ -56,6 +56,7 @@ void cmpt_data_rate(int flight_mode) {
 void send_data() { 
   packet_count = (packet_count +1); 
   TLM_PORT.println(mainTLM); 
+  if (DEBUG) { Serial.println("Sending Data"); }
   if (TLM_MONITOR) {  
     Serial.println(mainTLM);  
   }
@@ -64,6 +65,7 @@ void send_data() {
 void save_data(bool initialised) { 
   if (initialised == true) {
     if (sd_ok == true and SD_WRITING == true) {
+      if (DEBUG) { Serial.println("Saving Data"); }
       dataFile = SD.open(namebuff, FILE_WRITE);
       dataFile.println(mainSD); 
       dataFile.close();
@@ -99,9 +101,12 @@ void newfile() {
   dtostrf(time_number, 1, 0, sdnamebuff); 
   sprintf(namebuff, "%s.txt", sdnamebuff);
   sprintf(nameconfig, "config_%s.txt", sdnamebuff);
+
+  if (DEBUG) { Serial.println("Trying to create a new LOG file"); } 
     
-  if (!SD.begin(chipSelect)) { sd_ok = false; }
+  if (!SD.begin(chipSelect)) { sd_ok = false;  if (DEBUG) { Serial.println("Failure"); } }
   else { 
+    if (DEBUG) { Serial.println("Success"); }
     sd_ok = true; 
     SdFile::dateTimeCallback(dateTime);
     dataFile = SD.open(namebuff, FILE_WRITE);
@@ -129,8 +134,10 @@ void getconfig() {
   if (!SD.begin(chipSelect)) { sd_ok = false; delay(1500); }
   else {
     sd_ok = true; 
+    if (DEBUG) { Serial.println("Trying to read the file"); }
     File configFile = SD.open("config.txt", FILE_READ);
     if (configFile) {
+      if (DEBUG) { Serial.println("Success"); } 
 
       // Reading the baro adress 
       String memory = ""; 
@@ -170,6 +177,7 @@ void getconfig() {
       configFile.close();
     }
     else { 
+      if (DEBUG) { Serial.println("Failure"); }
       delay(1500) ;
     }
   }  

@@ -8,13 +8,15 @@ bool lostFrame;
 
 void rc_setup() {
   rx.begin();
+  if (DEBUG) { Serial.println("RC was set correctly"); } 
 }
 
 void get_rc() {
   rx.read(&channels[0], &failsafe, &lostFrame);
   
   if ((channels[3])>=1500 or (channels[3])==0) { failsafe = true; }
-  else { failsafe = false; }  
+  else { failsafe = false; } 
+  if (DEBUG) { Serial.println("Just got RC (even if no rx is connected)"); }  
 }
 
 String rc_text() {

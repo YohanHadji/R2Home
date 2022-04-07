@@ -10,7 +10,12 @@ float cmd_to_waypoint   = 0;
 void setup() {
 
   Serial.begin(115200);
+
+  if (DEBUG) { Serial.println("Just barely waking up"); } 
+  
   TLM_PORT.begin(57600); 
+
+  if (DEBUG) { Serial.println("Ready to initialise all the hardware"); } 
 
   battery_setup(); 
   buzzer_setup(); 
@@ -43,7 +48,12 @@ void loop() {
     tloop = millis(); 
     loop_rate = loop_count;
     loop_count = 0; 
-  } 
+  }
+
+  if (DEBUG) {
+    delay(10); 
+  }
+  
 }
 
 void getdata() { 
@@ -57,7 +67,8 @@ void getdata() {
 void datacmpt() {
   
   if (new_cog) {
-    new_cog = false; 
+    new_cog = false;
+    if (DEBUG) { Serial.println("New direction and command computed"); }  
     setPoint_waypoint = cmpt_setpoint(current_waypoint); 
     error_waypoint    = cmpt_error(gps.course.deg(), setPoint_waypoint);
     cmd_to_waypoint   = cmpt_cmd(error_waypoint);

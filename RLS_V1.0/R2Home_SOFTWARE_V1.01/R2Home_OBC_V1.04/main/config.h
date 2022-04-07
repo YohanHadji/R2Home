@@ -16,7 +16,8 @@
 #define COG_BRAKE       false // Will reduce command if CoG is turning faster than a threshold
 #define GPS_FREQ        5     // Hz
 #define SERVO_RATE      50    // Hz 
-#define TLM_MONITOR     true  // Show telemetry on serial monitor 
+#define TLM_MONITOR     false // Show telemetry on serial monitor 
+#define DEBUG           true  // Will show all the steps on the screen
 #define GPS_PORT Serial7
 #define TLM_PORT Serial5 
 #define RX_PORT  Serial1

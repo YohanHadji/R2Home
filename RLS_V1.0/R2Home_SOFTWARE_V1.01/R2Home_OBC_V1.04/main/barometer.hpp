@@ -54,6 +54,7 @@ void barometer_setup() {
   Adafruit_BMP280::FILTER_X16,      
   Adafruit_BMP280::STANDBY_MS_1);
   baroset(0, 1);  
+  if (DEBUG) { Serial.println("Baro was set correctly"); } 
 }
 
 void cmpt_vertical_speed_baro(float da, int dt) {  
@@ -64,6 +65,7 @@ void cmpt_vertical_speed_baro(float da, int dt) {
 
 void get_baro(int mode) {
   if ((millis()-baroA)>=10 and mode == 0) { 
+    if (DEBUG) { Serial.println("Got a Baro message"); } 
     
     baroA = millis();
     unsigned waitd = millis(); 

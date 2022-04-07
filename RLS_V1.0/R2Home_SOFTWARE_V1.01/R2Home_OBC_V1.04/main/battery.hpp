@@ -13,6 +13,7 @@ int cells = 0;
 void battery_setup() {
   pinMode(vpin, INPUT); 
   voltage.begin();
+  if (DEBUG) { Serial.println("RC was set correctly"); } 
 }
 
 void get_vbatt() {
