@@ -1,6 +1,9 @@
 #include "config.h"
 #include <Adafruit_BMP280.h>
 #include <movingAvg.h>
+#include <Watchdog.h>
+
+Watchdog watchdog; 
 
 Adafruit_BMP280 bmp(&Wire);
 int baro_adress = 0x00; 
@@ -31,6 +34,7 @@ void baroset(float alt_set, int factor) {
         alt_baro = bmp.readAltitude(baro_set);
         baro_set = (baro_set + ((alt_set-alt_baro)/(8*factor)));
         prev_alt_baro = alt_baro; 
+        watchdog.reset();
         }
      } while (abs(alt_baro-alt_set)>0.01); 
 }
@@ -47,14 +51,21 @@ void barometer_setup() {
   b_vs.begin(); 
   b_al.begin();
   ps.begin(); 
-  bmp.begin(baro_adress);
+  if (DEBUG) { Serial.println("Trying to find baro at its adress"); }
+  if (bmp.begin(baro_adress)) {
+    if (DEBUG) { Serial.println("Success"); }
+    if (DEBUG) { Serial.println("Trying to set baro at 0"); }
+    baroset(0, 1);  
+    if (DEBUG) { Serial.println("Baro was set correctly"); } 
+  }
+  else {
+    if (DEBUG) { Serial.println("Failure"); }
+  }
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     
   Adafruit_BMP280::SAMPLING_X1,   
   Adafruit_BMP280::SAMPLING_X2,    
   Adafruit_BMP280::FILTER_X16,      
   Adafruit_BMP280::STANDBY_MS_1);
-  baroset(0, 1);  
-  if (DEBUG) { Serial.println("Baro was set correctly"); } 
 }
 
 void cmpt_vertical_speed_baro(float da, int dt) {  

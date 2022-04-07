@@ -1,8 +1,7 @@
 #include <SD.h>
-#include <Watchdog.h>
 #include "feedback.hpp"
 
-Watchdog watchdog; 
+
 bool sd_ok = false; 
 unsigned int delaySD = 100;    // Datalog 
 unsigned int delayTLM = 1000;   // Tlm 
