@@ -1,10 +1,10 @@
 //---------- CONFIG ----------// 
 
-#define I_WANT_TO_FLY   false // Simulated servo movement to test the servo movement :)) 
+#define I_WANT_TO_FLY   true  // Simulated servo movement to test the servo movement :)) 
 #define TEST_DIR_RC     false // Use channels 0 on the radio to test the direction of the autopilot and the servos, I_WANT_TO_FLY should be set true too. 
 #define BUZZER_TURN     false // Buzzer sounds as function of the turn command 
 #define BUZZER_SWEEP    false // Buzzer turn on steroïds, should be easier to understand his tricky language ^^
-#define NO_INIT         false // Skip init, for testing only purposes 
+#define NO_INIT         true  // Skip init, for testing only purposes 
 #define NAV_WAYPOINT    false // Doing the waypoint sequence before reaching home? 
 #define NAV_HOME        true  // Should it go home after the waypoint sequence? 
 #define SD_WRITING      true  // Should it write on the SD card or not? 
@@ -17,7 +17,7 @@
 #define GPS_FREQ        5     // Hz
 #define SERVO_RATE      50    // Hz 
 #define TLM_MONITOR     false // Show telemetry on serial monitor 
-#define DEBUG           true  // Will show all the steps on the screen
+#define DEBUG           false // Will show all the steps on the screen
 #define GPS_PORT Serial7
 #define TLM_PORT Serial5 
 #define RX_PORT  Serial1
@@ -35,8 +35,8 @@
 #define OPENING_TIMER   6000
 #define SPIRAL_RECOVER  5000
 #define DEP_ALT         300   // m above ground  
-#define VUP             5     // m/s 
-#define VDOWN           -6    // m/s
+#define VUP             1     // m/s 
+#define VDOWN           -1    // m/s
 
 // PID for navigation, better to not touch them and touch the servo max command settings instead 
 #define NKP   1
@@ -47,8 +47,8 @@
 #define BLOW      3.5
 #define NO_BATT   4.0 
 
-#define AUTO_GAIN_WEIGHT    true // Servo max command will be set automatically at initialization based on given payload weight 
-#define AUTO_GAIN_PRESSURE  true // Servo max command will be set automatically during the flight based on the ratio between ground pressure and current pressure 
+#define AUTO_GAIN_WEIGHT    true  // Servo max command will be set automatically at initialization based on given payload weight 
+#define AUTO_GAIN_PRESSURE  true  // Servo max command will be set automatically during the flight based on the ratio between ground pressure and current pressure 
 
 #define SYSTEM_WEIGHT  500 // System weight in gram
 #define PAYLOAD_WEIGHT 500 // Payload weight in gram 
