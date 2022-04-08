@@ -92,7 +92,9 @@ void datacmpt() {
 
   cmpt_flight_state(); 
   cmpt_data_rate(flight_mode); 
-  cmpt_fusion(); 
+  if (initialised) {
+    cmpt_fusion(); 
+  }
   cmpt_vertical_state(); 
 
   if ((millis()-sd)>=delaySD) { 

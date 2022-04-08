@@ -39,8 +39,8 @@ void flight_init() {
     }
 
     baroset(gps.altitude.meters(), 1); 
-
-    get_baro(1); 
+    get_baro(1);
+    cmpt_fusion(); 
 
     b_vs.reset(); 
     b_al.reset(); 

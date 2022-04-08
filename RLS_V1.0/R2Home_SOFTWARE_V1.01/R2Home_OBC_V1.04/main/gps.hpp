@@ -46,7 +46,7 @@ void get_gps() {
   }
 
   if (gps.altitude.isUpdated()) {
-    cmpt_vertical_speed_gps(gps.altitude.meters()-prev_alt_gps, millis()-gpsB);
+    cmpt_vertical_speed_gps(gps.altitude.meters()-prev_alt_gps, (millis()-gps.altitude.age())-gpsB);
     gpsB = millis(); 
     prev_alt_gps = gps.altitude.meters(); 
     new_gps = true; 
