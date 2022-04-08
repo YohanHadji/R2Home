@@ -60,6 +60,7 @@ void barometer_setup() {
   }
   else {
     if (DEBUG) { Serial.println("Failure"); }
+    delay(1500); 
   }
   bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,     
   Adafruit_BMP280::SAMPLING_X1,   
@@ -75,9 +76,10 @@ void cmpt_vertical_speed_baro(float da, int dt) {
 }
 
 void get_baro(int mode) {
-  if ((millis()-baroA)>=10 and mode == 0) { 
+  if ((millis()-baroA)>=10 and mode == 0) {
+     
     if (DEBUG) { Serial.println("Got a Baro message"); } 
-    
+  
     baroA = millis();
     unsigned waitd = millis(); 
     
@@ -86,12 +88,12 @@ void get_baro(int mode) {
         
     alt_baro = (b_al.reading(alt_baro*100.0)/100.0);
     pressure_baro = (ps.reading(pressure_baro*100.0)/100.0);
-    
+
     if (((millis() - waitd) >= 100)) { 
       barometer_setup(); 
     } 
     baro_count = (baro_count + 1);;
-     
+    
     if (baro_count >= BARO_VS_SAMPLE) { 
       baro_count = 0; 
       cmpt_vertical_speed_baro(alt_baro-prev_alt_baro, baroA-baroB); 
@@ -101,7 +103,7 @@ void get_baro(int mode) {
     } 
   }
 
-  else {
+  else if (mode == 1) {
     baroA = millis();
     unsigned waitd = millis(); 
     

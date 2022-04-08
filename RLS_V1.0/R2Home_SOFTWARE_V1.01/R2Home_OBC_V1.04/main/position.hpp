@@ -24,7 +24,7 @@ movingAvg gps_v(GPS_SAFE_AVG);
 movingAvg baro_v(BARO_SAFE_AVG);
 movingAvg ps_p(PRE_PE_AVG);  
 
-float pressure_percentage;
+double pressure_percentage;
 
 void position_setup() {
   gps_v.begin(); 
@@ -38,6 +38,8 @@ void cmpt_fusion() {
     new_gps_fusion = false; 
      
     pressure_percentage = (ps_p.reading((pressure_baro / (baro_set*100.0))*100.0)/100.0) ;
+    pressure_percentage = constrain(pressure_percentage, 5, 100); 
+    
     baro_alt_weight = pressure_percentage;
     baro_vspeed_weight = pressure_percentage*pressure_percentage;
 
@@ -110,7 +112,8 @@ bool is_descent(int v_trigger, bool mode) {
 }
 
 float pressure_sqrt_ratio() {
-  return sqrt((baro_set*100.0)/pressure_baro);
+  double raw_ratio = sqrt((baro_set*100.0)/pressure_baro);
+  return constrain(raw_ratio, 1, 5); 
 }
 
 float v_down(int vdown) {
