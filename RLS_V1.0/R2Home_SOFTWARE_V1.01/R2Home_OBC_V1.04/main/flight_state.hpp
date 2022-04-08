@@ -9,6 +9,7 @@ bool flight_started = false;
 bool deployed     = false; 
 bool wing_opened  = false; 
 bool spiral = false;
+bool separation = false;
 unsigned long spiral_time = 0; 
 unsigned long init_time = 0; 
 
@@ -106,6 +107,9 @@ void flight_ascent() {
   }  
   if ((gps.altitude.meters()-ground_altitude)>10) {
     flight_started = true; 
+  }
+  if (gps.altitude.meters()>SEP_ALT and gps_ok) {
+    separation = true;
   }
 }
 

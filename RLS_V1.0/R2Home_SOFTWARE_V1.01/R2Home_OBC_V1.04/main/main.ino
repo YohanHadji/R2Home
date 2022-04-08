@@ -87,7 +87,7 @@ void datacmpt() {
     cog_ok = true;
   }
 
-  steering = cmpt_servo(channels, cmd_to_waypoint, flight_mode, deployed, failsafe, cog_ok, spiral);
+  steering = cmpt_servo(channels, cmd_to_waypoint, flight_mode, deployed, failsafe, cog_ok, spiral, separation);
   update_servo_cmd(steering, SERVO_RATE); 
 
   cmpt_flight_state(); 

@@ -5,7 +5,7 @@
 #define BUZZER_TURN     false // Buzzer sounds as function of the turn command 
 #define BUZZER_SWEEP    false // Buzzer turn on steroïds, should be easier to understand his tricky language ^^
 #define NO_INIT         false // Skip init, for testing only purposes 
-#define NAV_WAYPOINT    false // Doing the waypoint sequence before reaching home? 
+#define NAV_WAYPOINT    true  // Doing the waypoint sequence before reaching home? 
 #define NAV_HOME        true  // Should it go home after the waypoint sequence? 
 #define SD_WRITING      true  // Should it write on the SD card or not? 
 #define LOW_RATE        false // Dataloging at low HZ (if true) instead of 20Hz, for balloon flight 
@@ -35,6 +35,7 @@
 #define OPENING_TIMER   3000
 #define SPIRAL_RECOVER  5000
 #define DEP_ALT         300   // m above ground  
+#define SEP_ALT         10000 // m above sea level
 #define VUP             1     // m/s 
 #define VDOWN           -1    // m/s
 

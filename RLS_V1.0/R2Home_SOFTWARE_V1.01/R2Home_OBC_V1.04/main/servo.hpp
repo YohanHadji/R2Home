@@ -3,7 +3,8 @@
 #include <PWMServo.h>
 
 PWMServo steer;
-PWMServo deploy; 
+PWMServo deploy;
+PWMServo aux_deploy;
 PWMServo left; 
 PWMServo right; 
 PWMServo esc; 
@@ -11,6 +12,7 @@ PWMServo esc;
 int servo_left  = 0;
 int servo_right = 0;
 int servo_aux   = 0; 
+int servo_aux_deploy = 0; 
 
 unsigned long tpwm = 0; 
  
@@ -18,6 +20,7 @@ struct servo_cmd {
   float left = 1500;
   float right = 1500; 
   float aux = 1500; 
+  float aux_deploy = 1500; 
 };
 
 void servo_setup() {
@@ -25,9 +28,10 @@ void servo_setup() {
   right.attach(7, 1000, 2000); 
   if (DROP == true) { deploy.attach(8, 1000, 2000); } 
   else              { esc.attach(8, 1000, 2000);    }
+  aux_deploy.attach(9, 1000, 2000); 
 }
 
-servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool deployed, bool failsafe, bool cog_ok, bool spiral) {
+servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool deployed, bool failsafe, bool cog_ok, bool spiral, bool separation) {
   
   float roll  = map(channels[0], 67, 1982, 1000, 2000);
   float pitch = map(channels[1], 67, 1982, 1000, 2000);
@@ -132,7 +136,6 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
     
     case 0: 
     case 1:
-    case 2:
     case 3:
     case 4:
     case 5: 
@@ -148,6 +151,15 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
         else { steering_cmpt.aux = sw; }
       } 
     break; 
+
+    case 2:
+      if (separation == true) {
+        steering_cmpt.aux_deploy = 1000;
+      }
+      else {
+        steering_cmpt.aux_deploy = 2000;
+      }
+    break;
 
     case 8:
       steering_cmpt.aux = aux;
@@ -166,6 +178,7 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
   servo_left = steering_cmpt.left; 
   servo_right = steering_cmpt.right; 
   servo_aux = steering_cmpt.aux; 
+  servo_aux_deploy = steering_cmpt.aux_deploy; 
   
   return steering_cmpt;  
 }
@@ -177,6 +190,7 @@ void update_servo_cmd(servo_cmd steering_apply, unsigned int a) {
     left.write(map(steering_apply.left, 1000, 2000, 0, 180));
     right.write(map(steering_apply.right, 1000, 2000, 0, 180)); 
     deploy.write(map(steering_apply.aux, 1000, 2000, 0, 180));
+    aux_deploy.write(map(steering_apply.aux_deploy, 1000, 2000, 0, 180));
   }
  
 }
@@ -185,5 +199,6 @@ String servo_text() {
   String left_text  = String(servo_left); 
   String right_text = String(servo_right); 
   String aux_text   = String(servo_aux); 
-  return left_text+","+right_text+","+aux_text; 
+  String aux_deploy_text = String(servo_aux_deploy); 
+  return left_text+","+right_text+","+aux_text+","+aux_deploy_text; 
 }
