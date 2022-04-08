@@ -36,6 +36,8 @@ void setup() {
   barometer_setup();  
   navigation_setup(); 
 
+  cmpt_weight_gain();
+
   buzzer_end_setup(); 
 }
 
@@ -68,6 +70,8 @@ void getdata() {
 }
 
 void datacmpt() {
+
+  cmpt_pressure_gain(pressure_baro); 
   
   if (new_cog) {
     new_cog = false;
@@ -79,7 +83,7 @@ void datacmpt() {
 
   if (I_WANT_TO_FLY) {
     cmd_to_waypoint = sim(); 
-    Serial.println(cmd_to_waypoint); 
+    //Serial.println(cmd_to_waypoint); 
     cog_ok = true;
   }
 

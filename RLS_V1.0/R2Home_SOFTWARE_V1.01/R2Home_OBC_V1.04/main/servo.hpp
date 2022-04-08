@@ -1,4 +1,5 @@
 #include "config.h"
+#include "control.hpp"
 #include <PWMServo.h>
 
 PWMServo steer;

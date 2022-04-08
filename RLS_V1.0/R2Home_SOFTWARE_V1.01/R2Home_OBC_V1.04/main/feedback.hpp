@@ -7,7 +7,6 @@
 #include "debug.hpp"
 #include "navigation.hpp" 
 #include "rc.hpp"
-#include "servo.hpp" 
 
 #define LED_PIN     3
 #define LED_COUNT  1

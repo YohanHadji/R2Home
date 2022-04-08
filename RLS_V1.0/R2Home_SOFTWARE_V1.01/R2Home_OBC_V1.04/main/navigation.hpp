@@ -1,6 +1,6 @@
 #include "config.h"
 #include "position.hpp"
-#include "control.hpp"
+#include "servo.hpp"
 
 struct gps_location { 
   double latitude = 0; 
