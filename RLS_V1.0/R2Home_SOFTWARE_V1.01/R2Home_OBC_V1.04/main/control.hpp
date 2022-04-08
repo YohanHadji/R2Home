@@ -10,6 +10,8 @@ int SERVO_MAX_C = 0;
 double Setpoint, Input, Output;
 PID myPID(&Input, &Output, &Setpoint,NKP, NKI, NKD, DIRECT);
 
+unsigned long time_gain = 0; 
+
 void navigation_setup() {
   myPID.SetTunings(NKP, NKI, NKD);
   myPID.SetOutputLimits(-180, 180);
@@ -29,7 +31,7 @@ void cmpt_weight_gain() {
     int total_weight = SYSTEM_WEIGHT+PAYLOAD_WEIGHT;
     total_weight = constrain(total_weight, 500, 1500); 
     SERVO_MAX_M_W = map(total_weight, 500, 1500, 2000, 1500); 
-    SERVO_MAX_C_W = map(total_weight, 500, 1500, 1500, 1250); 
+    SERVO_MAX_C_W = map(total_weight, 500, 1500, 2000, 1500); 
   }
   else {
     SERVO_MAX_M_W = SERVO_MAX_M_DEF;
@@ -38,13 +40,18 @@ void cmpt_weight_gain() {
 }
 
 void cmpt_pressure_gain(float pressure_ratio) {
-  if (AUTO_GAIN_PRESSURE) {
-    SERVO_MAX_M = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000); 
-    SERVO_MAX_C = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 1500);
-  }
-  else {
-    SERVO_MAX_M = SERVO_MAX_M_W;
-    SERVO_MAX_C = SERVO_MAX_C_W; 
+  if (millis()-time_gain>1000) {
+    time_gain = millis();  
+    if (AUTO_GAIN_PRESSURE) {
+      SERVO_MAX_M = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000); 
+      SERVO_MAX_C = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000);
+      Serial.print(SERVO_MAX_M_W); Serial.print(","); Serial.print(SERVO_MAX_M); Serial.print(",");
+      Serial.print(SERVO_MAX_C_W); Serial.print(","); Serial.println(SERVO_MAX_C); 
+    }
+    else {
+      SERVO_MAX_M = SERVO_MAX_M_W;
+      SERVO_MAX_C = SERVO_MAX_C_W; 
+    }
   }
 }
 

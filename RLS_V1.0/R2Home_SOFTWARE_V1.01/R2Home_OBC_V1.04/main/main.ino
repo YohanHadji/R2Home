@@ -71,7 +71,7 @@ void getdata() {
 
 void datacmpt() {
 
-  cmpt_pressure_gain(pressure_baro); 
+  cmpt_pressure_gain(pressure_sqrt_ratio()); 
   
   if (new_cog) {
     new_cog = false;
