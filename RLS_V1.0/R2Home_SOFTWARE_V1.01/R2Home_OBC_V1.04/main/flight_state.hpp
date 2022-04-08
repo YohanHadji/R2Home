@@ -17,7 +17,7 @@ unsigned long init_time = 0;
 
 void flight_init() { 
   
-  if ((gps.satellites.value()>=6 and gps_ok and gps.hdop.value()<200) or NO_INIT) {
+  if ((gps.satellites.value()>=6 and gps_ok and gps.hdop.value()<150 and millis()>5000) or NO_INIT) {
 
     EasyBuzzer.beep(3000,100,50,10,500,1);
 

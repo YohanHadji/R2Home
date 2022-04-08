@@ -1,5 +1,5 @@
-// This code is V3.01
-// Updated on April 7th
+// This code is V3.02
+// Updated on April 8th
 
 #include <movingAvg.h>
 #include "flight_state.hpp" 

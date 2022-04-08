@@ -1,10 +1,10 @@
 //---------- CONFIG ----------// 
 
-#define I_WANT_TO_FLY   true  // Simulated servo movement to test the servo movement :)) 
+#define I_WANT_TO_FLY   false // Simulated servo movement to test the servo movement :)) 
 #define TEST_DIR_RC     false // Use channels 0 on the radio to test the direction of the autopilot and the servos, I_WANT_TO_FLY should be set true too. 
 #define BUZZER_TURN     false // Buzzer sounds as function of the turn command 
 #define BUZZER_SWEEP    false // Buzzer turn on steroïds, should be easier to understand his tricky language ^^
-#define NO_INIT         true  // Skip init, for testing only purposes 
+#define NO_INIT         false // Skip init, for testing only purposes 
 #define NAV_WAYPOINT    false // Doing the waypoint sequence before reaching home? 
 #define NAV_HOME        true  // Should it go home after the waypoint sequence? 
 #define SD_WRITING      true  // Should it write on the SD card or not? 
