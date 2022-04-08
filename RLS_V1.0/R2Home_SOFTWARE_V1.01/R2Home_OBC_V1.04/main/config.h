@@ -16,7 +16,7 @@
 #define COG_BRAKE       false // Will reduce command if CoG is turning faster than a threshold
 #define GPS_FREQ        5     // Hz
 #define SERVO_RATE      50    // Hz 
-#define TLM_MONITOR     false // Show telemetry on serial monitor 
+#define TLM_MONITOR     true  // Show telemetry on serial monitor 
 #define DEBUG           false // Will show all the steps on the screen
 #define GPS_PORT Serial7
 #define TLM_PORT Serial5 
@@ -30,9 +30,9 @@
 #define LINEAR_MODE     0     // command is linear (0), or linear but with a large deadband set using servo_start etc (1)
 #define DROP            true  // R2Home's version, drop or motorised
 
-#define DEP_MODE        0     // If 0, the timer will be used if 1, the altitude will be used, to trigger deployment once in descent mode
-#define DESCENT_TIMER   15000  
-#define OPENING_TIMER   6000
+#define DEP_MODE        1     // If 0, the ALTITUDE will be used if 1, the TIMER will be used, to trigger deployment once in descent mode
+#define DESCENT_TIMER   4000  
+#define OPENING_TIMER   3000
 #define SPIRAL_RECOVER  5000
 #define DEP_ALT         300   // m above ground  
 #define VUP             1     // m/s 
@@ -54,8 +54,8 @@
 #define PAYLOAD_WEIGHT 500 // Payload weight in gram 
 
 // If you choose to not use any of the two auto_gain functions, you can set the max commands with these two lines: 
-#define SERVO_MAX_M_DEF 1600 // m for map
-#define SERVO_MAX_C_DEF 1375 // c for constrain 
+#define SERVO_MAX_M_DEF 2000 // m for map
+#define SERVO_MAX_C_DEF 2000 // c for constrain 
 
 #define TRIG 20
 #define LEFT_OFFSET   100
@@ -72,6 +72,6 @@
 #define GPS_VS_AVG  1
 
 #define GPS_SAFE_AVG  50
-#define BARO_SAFE_AVG 10
+#define BARO_SAFE_AVG 5
 
 #define PRE_PE_AVG 50

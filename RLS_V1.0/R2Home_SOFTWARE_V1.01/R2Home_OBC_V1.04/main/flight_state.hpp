@@ -3,6 +3,7 @@
 
 int flight_mode   = 0; 
 int dep_altitude  = 0; 
+int prev_flight_mode = 0; 
 bool initialised  = false;
 bool flight_started = false;
 bool deployed     = false; 
@@ -238,6 +239,14 @@ void flight_gliding_no_gps() {
 //------------------- STATE MACHINE -------------------//
 
 void cmpt_flight_state() {
+
+  if (flight_mode!=prev_flight_mode) {
+      cmpt_string_data(flight_mode, initialised, deployed, wing_opened, spiral);
+      save_data(initialised); 
+      send_data();
+      prev_flight_mode = flight_mode; 
+  }
+  
   switch(flight_mode) { 
     case 0: 
       flight_init(); 

@@ -45,8 +45,6 @@ void cmpt_pressure_gain(float pressure_ratio) {
     if (AUTO_GAIN_PRESSURE) {
       SERVO_MAX_M = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000); 
       SERVO_MAX_C = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000);
-      Serial.print(SERVO_MAX_M_W); Serial.print(","); Serial.print(SERVO_MAX_M); Serial.print(",");
-      Serial.print(SERVO_MAX_C_W); Serial.print(","); Serial.println(SERVO_MAX_C); 
     }
     else {
       SERVO_MAX_M = SERVO_MAX_M_W;
