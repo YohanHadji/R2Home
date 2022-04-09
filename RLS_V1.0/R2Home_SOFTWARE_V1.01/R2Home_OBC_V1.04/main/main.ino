@@ -1,5 +1,5 @@
 // This code is V3.03
-// Updated on April 9th
+// Updated AND tested on April 9th
 // Ready for flight, godspeed lil' robot :) 
 
 #include <movingAvg.h>

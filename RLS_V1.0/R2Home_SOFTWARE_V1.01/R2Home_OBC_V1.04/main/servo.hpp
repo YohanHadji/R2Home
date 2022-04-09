@@ -136,11 +136,13 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
     
     case 0: 
     case 1:
+    case 2:
     case 3:
     case 4:
     case 5: 
     case 6:
     case 7: 
+      // Deployment Servo
       if (deployed == true) { 
         steering_cmpt.aux = 1000; 
       }
@@ -150,17 +152,15 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
         } 
         else { steering_cmpt.aux = sw; }
       } 
-    steering_cmpt.aux_deploy = 2000;
-    break; 
 
-    case 2:
+      // Separation Servo
       if (separation == true) {
         steering_cmpt.aux_deploy = 1000;
       }
       else {
         steering_cmpt.aux_deploy = 2000;
       }
-    break;
+    break; 
 
     case 8:
       steering_cmpt.aux = aux;
@@ -172,7 +172,8 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
      break; 
 
      case 11:
-     steering_cmpt.aux = 1000;
+      steering_cmpt.aux = 1000;
+      steering_cmpt.aux_deploy = 2000;
      break;  
   } 
   
