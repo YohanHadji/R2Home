@@ -31,7 +31,7 @@ void cmpt_weight_gain() {
     int total_weight = SYSTEM_WEIGHT+PAYLOAD_WEIGHT;
     total_weight = constrain(total_weight, 500, 1500); 
     SERVO_MAX_M_W = map(total_weight, 500, 1500, 2000, 1500); 
-    SERVO_MAX_C_W = map(total_weight, 500, 1500, 2000, 1500); 
+    SERVO_MAX_C_W = map(total_weight, 500, 1500, 1750, 1250); 
   }
   else {
     SERVO_MAX_M_W = SERVO_MAX_M_DEF;
