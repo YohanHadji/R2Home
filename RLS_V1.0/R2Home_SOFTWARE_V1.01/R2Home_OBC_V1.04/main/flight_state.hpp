@@ -39,13 +39,13 @@ void flight_init() {
       current_waypoint = waypoint[waypoint_number]; 
     }
 
-    baroset(gps.altitude.meters(), 1); 
-    get_baro(1);
-    cmpt_fusion(); 
-
     b_vs.reset(); 
     b_al.reset(); 
     g_vs.reset();
+    
+    baroset(gps.altitude.meters(), 1); 
+    get_baro(1);
+    merged_alt = gps.altitude.meters(); 
 
     cmpt_string_data(flight_mode, initialised, deployed, wing_opened, spiral);
 
@@ -81,7 +81,7 @@ void ready_steady() {
     setcam(1, 20, 600); 
   }
    
-  if (is_descent(v_down(VDOWN), 0)) {  
+  if (is_descent(v_down(VDOWN), 1)) {  
     flight_mode = 3; 
     EasyBuzzer.beep(3000,100,50,3,500,1); 
     setcam(1, 60, 600); 
@@ -159,7 +159,7 @@ void flight_gliding_auto() {
     myPID.SetMode(MANUAL);
   }
 
-  if (is_descent(v_down(-5), 0)) {
+  if (is_descent(v_down(-5), 1)) {
     spiral = true; 
     spiral_time = millis();
   }
@@ -244,9 +244,9 @@ void flight_gliding_no_gps() {
 
 void cmpt_flight_state() {
 
-  if (flight_mode!=prev_flight_mode) {
+  if (flight_mode!=prev_flight_mode and prev_flight_mode !=0) {
       cmpt_string_data(flight_mode, initialised, deployed, wing_opened, spiral);
-      save_data(initialised); 
+      save_data(); 
       send_data();
       prev_flight_mode = flight_mode; 
   }

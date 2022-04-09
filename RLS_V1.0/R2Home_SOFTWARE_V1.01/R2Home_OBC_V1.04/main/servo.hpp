@@ -150,6 +150,7 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
         } 
         else { steering_cmpt.aux = sw; }
       } 
+    steering_cmpt.aux_deploy = 2000;
     break; 
 
     case 2:

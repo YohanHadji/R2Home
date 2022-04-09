@@ -92,15 +92,18 @@ void datacmpt() {
 
   cmpt_flight_state(); 
   cmpt_data_rate(flight_mode); 
+  
   if (initialised) {
+    cmpt_vertical_state();
     cmpt_fusion(); 
   }
-  cmpt_vertical_state(); 
-
+   
   if ((millis()-sd)>=delaySD) { 
     sd = millis(); 
     cmpt_string_data(flight_mode, initialised, deployed, wing_opened, spiral);
-    save_data(initialised);  
+    if (initialised) {
+      save_data();  
+    }
   }
   
   if (millis()-tlm>=delayTLM) { 

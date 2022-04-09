@@ -112,22 +112,11 @@ void get_baro(int mode) {
         
     alt_baro = (b_al.reading(alt_baro*100.0)/100.0);
     pressure_baro = (ps.reading(pressure_baro*100.0)/100.0);
-    
-    if (((millis() - waitd) >= 100)) { 
-      barometer_setup(); 
-    } 
-    baro_count = (baro_count + 1);;
-     
-    if (baro_count >= BARO_VS_SAMPLE) { 
-      baro_count = 0; 
-      cmpt_vertical_speed_baro(alt_baro-prev_alt_baro, baroA-baroB); 
-      baroB = millis(); 
-      prev_alt_baro = alt_baro; 
-      new_baro = true;
-    } 
-  }
-}
 
+    new_baro = true;
+  }
+} 
+ 
 
 String baro_text() {
   String alt_baro_text = String(alt_baro, 3);

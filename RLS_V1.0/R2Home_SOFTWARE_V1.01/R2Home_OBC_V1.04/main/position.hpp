@@ -46,8 +46,8 @@ void cmpt_fusion() {
     double h_dop = gps.hdop.value(); 
   
     if (gps_ok) { 
-      gps_alt_weight = 50.0/h_dop;
-      gps_vspeed_weight = 1; 
+      gps_alt_weight = constrain((gps.altitude.meters()/3000), 0.1, 10);
+      gps_vspeed_weight = constrain((gps.altitude.meters()/6000), 0.05, 10); 
     }
     else { 
       gps_alt_weight = 0; 
@@ -55,7 +55,7 @@ void cmpt_fusion() {
     }
       
     merged_alt = ((alt_baro*baro_alt_weight)+(gps.altitude.meters()*gps_alt_weight))/(baro_alt_weight+gps_alt_weight); 
-    merged_vspeed = ((baro_vspeed*baro_vspeed_weight)+(gps_vspeed*gps_vspeed_weight))/(baro_vspeed_weight+gps_vspeed_weight); 
+    merged_vspeed = ((baro_stab_factor*baro_vspeed_weight)+(gps_stab_factor*gps_vspeed_weight))/(baro_vspeed_weight+gps_vspeed_weight); 
     
   }
 }
@@ -64,7 +64,7 @@ void cmpt_vertical_state() {
   if (new_baro) {
     new_baro = false; 
     new_baro_fusion = true;
-     baro_stab_factor = (baro_v.reading(baro_vspeed*100.0))/100.0;
+    baro_stab_factor = (baro_v.reading(baro_vspeed*100.0))/100.0;
   }
   if (new_gps) {
     new_gps = false; 
@@ -102,7 +102,7 @@ bool is_descent(int v_trigger, bool mode) {
     }
   }
   else {
-    if (gps_stab_factor<v_trigger and baro_stab_factor<v_trigger) {
+    if (merged_vspeed<v_trigger) {
       return true;
     }
     else {
@@ -128,7 +128,8 @@ String pos_text() {
   String baro_stab_text = String(baro_stab_factor, 2); 
   String gps_stab_text = String(gps_stab_factor, 2); 
   String v_down_text = String(v_down(VDOWN), 2); 
-  return merged_alt_text+","+baro_weight_text+","+gps_weight_text+","+baro_stab_text+","+gps_stab_text+","+v_down_text;
+  String merged_vspeed_text = String(merged_vspeed, 2); 
+  return merged_alt_text+","+merged_vspeed_text+","+baro_weight_text+","+gps_weight_text+","+baro_stab_text+","+gps_stab_text+","+v_down_text;
 }
 
 

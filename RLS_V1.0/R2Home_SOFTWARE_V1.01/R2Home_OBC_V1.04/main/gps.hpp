@@ -52,6 +52,8 @@ void get_gps() {
     new_gps = true; 
   }
 }
+
+
  
 void sendPacket(byte *packet, byte len){
     for (byte i = 0; i < len; i++) { GPS_PORT.write(packet[i]); }
