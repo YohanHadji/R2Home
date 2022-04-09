@@ -94,7 +94,7 @@ void ready_steady() {
 
   if (I_WANT_TO_FLY) {
     flight_mode = 5; 
-  }
+  }   
  }
 } 
 

@@ -11,7 +11,7 @@
 #define LOW_RATE        false // Dataloging at low HZ (if true) instead of 20Hz, for balloon flight 
 #define CONFIG_FILE_SV  false // Will also save the config file with the name of the file to debug if the config was wrong 
 #define LED_MODEL       0     // Big led = 1, small led = 0. 
-#define CAM_CYCLE       false // If true, camera will only be powered on for 20s every 10min, used to save battery on long HAB flight 
+#define CAM_CYCLE       true  // If true, camera will only be powered on for 20s every 10min, used to save battery on long HAB flight 
 #define SAFE_TRIGGER    false // For HAB flight, will use a safer, but slower methode to detect apogee and transision to descent mode 
 #define COG_BRAKE       false // Will reduce command if CoG is turning faster than a threshold
 #define GPS_FREQ        5     // Hz
@@ -72,7 +72,7 @@
 
 #define GPS_VS_AVG  1
 
-#define GPS_SAFE_AVG  50
+#define GPS_SAFE_AVG  10
 #define BARO_SAFE_AVG 5
 
 #define PRE_PE_AVG 50

@@ -43,11 +43,11 @@ void updatecam() {
       if ((millis()-camOn)>=onDuration) {
         setcam(0, (onDuration/1000)-4, offDuration/1000); 
       }
-      else {
-        if ((millis()-camOff)>offDuration) {
-          setcam(1, (onDuration/1000)-4, offDuration/1000); 
-        }  
-      }
+    }
+    else {
+      if ((millis()-camOff)>offDuration) {
+        setcam(1, (onDuration/1000)-4, offDuration/1000); 
+      }  
     }
   }
 }
