@@ -2,6 +2,7 @@
 
 #define I_WANT_TO_FLY   false // Simulated servo movement to test the servo movement :)) 
 #define TEST_DIR_RC     false // Use channels 0 on the radio to test the direction of the autopilot and the servos, I_WANT_TO_FLY should be set true too. 
+#define TEST_SEP_SERVO  false // Will simulate a separation 10 seconds after start up 
 #define BUZZER_TURN     false // Buzzer sounds as function of the turn command 
 #define BUZZER_SWEEP    false // Buzzer turn on steroïds, should be easier to understand his tricky language ^^
 #define NO_INIT         false // Skip init, for testing only purposes 
@@ -35,7 +36,7 @@
 #define OPENING_TIMER   3000
 #define SPIRAL_RECOVER  5000
 #define DEP_ALT         300   // m above ground  
-#define SEP_ALT         10000 // m above sea level
+#define SEP_ALT         10    // m above sea level
 #define VUP             1     // m/s 
 #define VDOWN           -1    // m/s
 

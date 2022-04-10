@@ -3,6 +3,7 @@
 
 int flight_mode   = 0; 
 int dep_altitude  = 0; 
+int sep_altitude = 0; 
 int prev_flight_mode = 0; 
 bool initialised  = false;
 bool flight_started = false;
@@ -50,7 +51,10 @@ void flight_init() {
     cmpt_string_data(flight_mode, initialised, deployed, wing_opened, spiral);
 
     ground_altitude = gps.altitude.meters();
+    ground_altitude = constrain(ground_altitude, 0, 2000); 
+    
     dep_altitude = (DEP_ALT+ground_altitude);
+    sep_altitude = (SEP_ALT+ground_altitude); 
   
     setcam(1, 60, 60); 
     newfile();
@@ -107,7 +111,7 @@ void flight_ascent() {
   if ((gps.altitude.meters()-ground_altitude)>10) {
     flight_started = true; 
   }
-  if (gps.altitude.meters()>SEP_ALT and gps_ok) {
+  if (gps.altitude.meters()>sep_altitude and gps_ok) {
     separation = true;
   }
 }

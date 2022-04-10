@@ -59,6 +59,10 @@ void loop() {
   if (DEBUG) {
     delay(10); 
   }
+
+  if (TEST_SEP_SERVO and millis()>10000) {
+    deployed = true; 
+  }
   
 }
 
