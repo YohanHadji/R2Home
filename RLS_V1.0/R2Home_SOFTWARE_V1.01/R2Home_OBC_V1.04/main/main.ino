@@ -1,5 +1,5 @@
-// This code is V3.07
-// Updated and tested on April 10th 10h15 UTC
+// This code is V3.08
+// Updated and tested on April 10th 10h21 UTC
 // Ready for flight
 
 #include <movingAvg.h>
