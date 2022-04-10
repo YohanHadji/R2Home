@@ -38,7 +38,7 @@ void cmpt_fusion() {
     new_gps_fusion = false; 
      
     pressure_percentage = (ps_p.reading((pressure_baro / (baro_set*100.0))*100.0)/100.0) ;
-    pressure_percentage = constrain(pressure_percentage, 5, 100); 
+    pressure_percentage = constrain(pressure_percentage, 0.05, 1); 
     
     baro_alt_weight = pressure_percentage*pressure_percentage;
     baro_vspeed_weight = pressure_percentage*pressure_percentage;
