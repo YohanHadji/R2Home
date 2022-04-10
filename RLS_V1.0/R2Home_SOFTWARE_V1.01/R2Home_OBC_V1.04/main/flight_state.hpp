@@ -54,7 +54,7 @@ void flight_init() {
     ground_altitude = constrain(ground_altitude, 0, 2000); 
     
     dep_altitude = (DEP_ALT+ground_altitude);
-    sep_altitude = (SEP_ALT+ground_altitude); 
+    sep_altitude = SEP_ALT; 
   
     setcam(1, 60, 60); 
     newfile();

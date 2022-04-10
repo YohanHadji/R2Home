@@ -36,7 +36,7 @@
 #define OPENING_TIMER   3000
 #define SPIRAL_RECOVER  5000
 #define DEP_ALT         300   // m above ground altitude 
-#define SEP_ALT         10    // m above ground altitude
+#define SEP_ALT         10    // m above sea level
 #define VUP             1     // m/s 
 #define VDOWN           -1    // m/s
 
