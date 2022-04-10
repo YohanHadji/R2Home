@@ -22,6 +22,7 @@ void cmpt_vertical_speed_gps(float da, int dt) {
   gps_vspeed = (da/(dt/1000.0));
   gps_vspeed = g_vs.reading(gps_vspeed*100); 
   gps_vspeed = (gps_vspeed/100);
+  gps_vspeed = constrain(gps_vspeed, -50, 10); 
 }
 
 void get_gps() {  

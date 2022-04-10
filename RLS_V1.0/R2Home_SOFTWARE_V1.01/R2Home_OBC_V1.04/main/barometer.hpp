@@ -73,6 +73,7 @@ void cmpt_vertical_speed_baro(float da, int dt) {
   baro_vspeed  = (da/(dt/1000.0));
   baro_vspeed = b_vs.reading(baro_vspeed*100); 
   baro_vspeed = (baro_vspeed/100);
+  baro_vspeed = constrain(baro_vspeed, -50, 10);
 }
 
 void get_baro(int mode) {
