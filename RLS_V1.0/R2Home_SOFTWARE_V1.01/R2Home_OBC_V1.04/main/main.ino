@@ -1,6 +1,6 @@
-// This code is V3.04
-// Updated on April 10th
-// Ready to be tested 
+// This code is V3.05
+// Updated and tested on April 10th 9h15 UTC
+// Ready for flight
 
 #include <movingAvg.h>
 #include "flight_state.hpp" 
