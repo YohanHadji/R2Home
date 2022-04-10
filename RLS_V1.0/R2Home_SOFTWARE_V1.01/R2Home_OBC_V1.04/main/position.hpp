@@ -40,7 +40,7 @@ void cmpt_fusion() {
     pressure_percentage = (ps_p.reading((pressure_baro / (baro_set*100.0))*100.0)/100.0) ;
     pressure_percentage = constrain(pressure_percentage, 5, 100); 
     
-    baro_alt_weight = pressure_percentage;
+    baro_alt_weight = pressure_percentage*pressure_percentage;
     baro_vspeed_weight = pressure_percentage*pressure_percentage;
 
     double h_dop = gps.hdop.value(); 

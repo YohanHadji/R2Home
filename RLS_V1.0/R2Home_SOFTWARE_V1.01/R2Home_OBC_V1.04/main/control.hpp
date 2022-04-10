@@ -31,7 +31,7 @@ void cmpt_weight_gain() {
     int total_weight = SYSTEM_WEIGHT+PAYLOAD_WEIGHT;
     total_weight = constrain(total_weight, 500, 1500); 
     SERVO_MAX_M_W = map(total_weight, 500, 1500, 2000, 1500); 
-    SERVO_MAX_C_W = map(total_weight, 500, 1500, 1750, 1250); 
+    SERVO_MAX_C_W = map(total_weight, 500, 1500, 1750, 1350); 
   }
   else {
     SERVO_MAX_M_W = SERVO_MAX_M_DEF;
@@ -43,8 +43,8 @@ void cmpt_pressure_gain(float pressure_ratio) {
   if (millis()-time_gain>1000) {
     time_gain = millis();  
     if (AUTO_GAIN_PRESSURE) {
-      SERVO_MAX_M = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000); 
-      SERVO_MAX_C = map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000);
+      SERVO_MAX_M = constrain(map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000), 1250, 2000); 
+      SERVO_MAX_C = constrain(map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000), 1250, 2000);
     }
     else {
       SERVO_MAX_M = SERVO_MAX_M_W;

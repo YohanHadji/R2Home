@@ -58,8 +58,9 @@ String control_text() {
   String lon_B_text = String(current_waypoint.longitude,5);
   String waypoint_text = String(waypoint_number); 
   String waypoint_distance = String(TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),current_waypoint.latitude,current_waypoint.longitude));
+  String waypoint_threshold = String(current_waypoint.radius); 
   
-  return setPoint_Home_text+","+errHome_text+","+lat_B_text+","+lon_B_text+","+waypoint_text+","+waypoint_distance; 
+  return setPoint_Home_text+","+errHome_text+","+lat_B_text+","+lon_B_text+","+waypoint_text+","+waypoint_distance+","+waypoint_threshold; 
 }
 
 String nav_text() {
