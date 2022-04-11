@@ -61,7 +61,7 @@ void loop() {
   }
 
   if (TEST_SEP_SERVO and millis()>10000) {
-    deployed = true; 
+    separation = true; 
   }
   
 }

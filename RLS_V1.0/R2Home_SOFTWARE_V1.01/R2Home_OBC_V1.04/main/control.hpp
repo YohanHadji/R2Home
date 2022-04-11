@@ -44,7 +44,7 @@ void cmpt_pressure_gain(float pressure_ratio) {
     time_gain = millis();  
     if (AUTO_GAIN_PRESSURE) {
       SERVO_MAX_M = constrain(map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000), 1250, 2000); 
-      SERVO_MAX_C = constrain(map((SERVO_MAX_M_W-1000)/pressure_ratio, 0, 1000, 1000, 2000), 1250, 2000);
+      SERVO_MAX_C = constrain(map((SERVO_MAX_C_W-1000)/pressure_ratio, 0, 1000, 1000, 2000), 1250, 2000);
     }
     else {
       SERVO_MAX_M = SERVO_MAX_M_W;
