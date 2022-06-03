@@ -6,17 +6,29 @@ uint16_t channels[16];
 bool failsafe;
 bool lostFrame;
 
+unsigned long last_rc(0); 
+
 void rc_setup() {
   rx.begin();
   if (DEBUG) { Serial.println("RC was set correctly"); } 
 }
 
 void get_rc() {
-  rx.read(&channels[0], &failsafe, &lostFrame);
-  
-  if ((channels[3])>=1500 or (channels[3])==0) { failsafe = true; }
-  else { failsafe = false; } 
-  if (DEBUG) { Serial.println("Just got RC (even if no rx is connected)"); }  
+     
+    rx.read(&channels[0], &failsafe, &lostFrame);    
+    if (channels[3]==0) { failsafe = true; }
+    //else { failsafe = false; } 
+    
+    if (DEBUG) { Serial.println("Just got RC (even if no rx is connected)"); }  
+
+    /* 
+    Serial.print(channels[0]); Serial.print(","); 
+    Serial.print(channels[1]); Serial.print(","); 
+    Serial.print(channels[2]); Serial.print(","); 
+    Serial.print(channels[4]); Serial.print(",");
+    Serial.print(channels[5]); Serial.print(",");
+    Serial.println(channels[6]);
+    */
 }
 
 String rc_text() {

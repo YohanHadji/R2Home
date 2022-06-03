@@ -1,17 +1,8 @@
 #include "config.h"
 #include "position.hpp"
 #include "servo.hpp"
+#include "where_to_go.hpp"
 
-struct gps_location { 
-  double latitude = 0; 
-  double longitude = 0; 
-  double radius = 0; 
-};
-
-gps_location waypoint[17]; 
-gps_location current_waypoint; 
-
-int waypoint_number = 0; 
 int last_waypoint_number = 0; 
 
 float getangle(float a, float b) { 
@@ -24,36 +15,17 @@ float getangle(float a, float b) {
   return angle;    
 }
 
-float cmpt_setpoint(gps_location waypoint) {                                                
-  return TinyGPSPlus::courseTo(gps.location.lat(),gps.location.lng(),waypoint.latitude,waypoint.longitude);                                      
+float cmpt_setpoint(float gps_latitude, float gps_longitude, gps_location waypoint) {                                                
+  return TinyGPSPlus::courseTo(gps_latitude, gps_longitude, waypoint.latitude, waypoint.longitude);                                      
 }
 
 float cmpt_error(float cog, float setPoint) {
   return getangle(cog, setPoint); 
 }
 
-void navigation() {
-   
-  if (NAV_WAYPOINT == true) {
-    
-    float distance_to = TinyGPSPlus::distanceBetween(gps.location.lat(),gps.location.lng(),current_waypoint.latitude,current_waypoint.longitude);
-     
-    if (distance_to < current_waypoint.radius) { 
-      
-      if (waypoint_number < 15) { 
-        waypoint_number++;
-      } 
-      
-      if ((waypoint[waypoint_number].latitude !=0) and (waypoint[waypoint_number].longitude !=0)) {
-        current_waypoint = waypoint[waypoint_number]; 
-      }  
-    }   
-  } 
-}
-
 String control_text() {
-  String setPoint_Home_text = String(cmpt_setpoint(current_waypoint),2);
-  String errHome_text = String(cmpt_error(gps.course.deg(), cmpt_setpoint(current_waypoint)),2); 
+  String setPoint_Home_text = String(cmpt_setpoint(gps.location.lat(), gps.location.lng(), current_waypoint),2);
+  String errHome_text = String(cmpt_error(gps.course.deg(), cmpt_setpoint(gps.location.lat(), gps.location.lng(), current_waypoint)),2); 
   String lat_B_text = String(current_waypoint.latitude,5);
   String lon_B_text = String(current_waypoint.longitude,5);
   String waypoint_text = String(waypoint_number); 

@@ -24,7 +24,7 @@ unsigned long tread     = 0;
 unsigned long tchange   = 0; 
 unsigned long tparallax = 0; 
 
-float Kp        = 0.75;
+float Kp        = 0.6;
 float Kd        = 0; 
 float lasterror = 0;  
 
@@ -103,7 +103,7 @@ void updatecmd(int a) {
 
       // ------------------------------------------------------------------------------------ // 
 
-      parallax_steer_b = map(parallax_steer_a, 1000, 2000, 1100, 1900); // this is the ONLY line to change to reduce the range, for example, "[...] 1450, 1550)" 
+      parallax_steer_b = map(parallax_steer_a, 1000, 2000, 1150, 1900); // this is the ONLY line to change to reduce the range, for example, "[...] 1450, 1550)" 
 
       Serial.print(parallax_steer_b); Serial.print(","); Serial.println(feedback_value); 
 

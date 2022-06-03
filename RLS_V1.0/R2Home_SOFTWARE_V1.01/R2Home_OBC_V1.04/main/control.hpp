@@ -1,14 +1,12 @@
 #include <PID_v1.h>
 #include "config.h" 
+#include "cmd_cmpt.hpp"
 
 int SERVO_MAX_M_W = 0; 
 int SERVO_MAX_C_W = 0; 
 
 int SERVO_MAX_M = 0; 
 int SERVO_MAX_C = 0; 
-
-double Setpoint, Input, Output;
-PID myPID(&Input, &Output, &Setpoint,NKP, NKI, NKD, DIRECT);
 
 unsigned long time_gain = 0; 
 
@@ -17,13 +15,6 @@ void navigation_setup() {
   myPID.SetOutputLimits(-180, 180);
   myPID.SetMode(MANUAL);
   if (DEBUG) { Serial.println("PIDs set correctly"); } 
-}
-
-float cmpt_cmd(float err) {      
-  Input = -err; 
-  Setpoint = 0; 
-  myPID.Compute();
-  return map(Output, -180, 180, 1000, 2000); 
 }
 
 void cmpt_weight_gain() {

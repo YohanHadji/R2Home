@@ -14,6 +14,10 @@ bool separation = false;
 unsigned long spiral_time = 0; 
 unsigned long init_time = 0; 
 
+float setPoint_waypoint = 0; 
+float error_waypoint    = 0; 
+float cmd_to_waypoint   = 0;
+
 
 //------------------- 0 -------------------//
 
@@ -54,13 +58,22 @@ void flight_init() {
     ground_altitude = constrain(ground_altitude, 0, 2000); 
     
     dep_altitude = (DEP_ALT+ground_altitude);
-    sep_altitude = SEP_ALT; 
+
+    if (ALT_MODE) {
+      sep_altitude = (SEP_ALT+ground_altitude); 
+    }
+    else {
+      sep_altitude = SEP_ALT; 
+    }
   
     setcam(1, 60, 60); 
     newfile();
 
     if (DROP == true) { flight_mode = 1;}
-    else { flight_mode = 8; }
+    else { 
+      myPID.SetMode(MANUAL); 
+      flight_mode = 7; 
+    }
 
     init_time = millis(); 
     initialised = true;      
@@ -105,15 +118,19 @@ void ready_steady() {
 //------------------- 2 -------------------//
 
 void flight_ascent() { 
+  
   if (is_descent(0, 0)) {
     flight_mode = 1;
-  }  
+  }
+    
   if ((gps.altitude.meters()-ground_altitude)>10) {
     flight_started = true; 
   }
+  
   if (gps.altitude.meters()>sep_altitude and gps_ok) {
     separation = true;
   }
+  
 }
 
 //------------------- 3 -------------------//
@@ -163,12 +180,14 @@ void flight_gliding_auto() {
   }
 
   if (is_descent(v_down(-5), 1)) {
+    myPID.SetMode(MANUAL);
     spiral = true; 
     spiral_time = millis();
   }
 
   if (millis()-spiral_time>SPIRAL_RECOVER) {
     spiral = false;
+    myPID.SetMode(AUTOMATIC);
   }
   
   if (failsafe == false) {
@@ -179,8 +198,15 @@ void flight_gliding_auto() {
   if (I_WANT_TO_FLY == true) { 
     flight_mode = 5;
   } 
+
+  if (new_cog) {
+    new_cog = false;
+    if (DEBUG) { Serial.println("New direction and command computed"); }  
+    setPoint_waypoint = cmpt_setpoint(gps.location.lat(), gps.location.lng(), where_to_go(gps.location.lat(), gps.location.lng())); 
+    error_waypoint    = cmpt_error(gps.course.deg(), setPoint_waypoint);
+    cmd_to_waypoint   = cmpt_cmd(error_waypoint);
+  }
   
-  navigation(); 
 }
 
 //------------------- 6 -------------------//
@@ -194,7 +220,10 @@ void flight_gliding_manual() {
 
 //------------------- 7 -------------------//
 
-void landed() {  
+void on_ground() {  
+  if (gps.speed.mps()>=LAUNCH_SPEED) {
+    flight_mode = 8; 
+  }
 }
 
 //------------------- 8 -------------------//
@@ -216,7 +245,14 @@ void motorised_man() {
 
 void motorised_auto() { 
   
-  navigation(); 
+  if (new_cog) {
+    new_cog = false;
+    if (DEBUG) { Serial.println("New direction and command computed"); }  
+    setPoint_waypoint = cmpt_setpoint(gps.location.lat(), gps.location.lng(), where_to_go(gps.location.lat(), gps.location.lng())); 
+    error_waypoint    = cmpt_error(gps.course.deg(), setPoint_waypoint);
+    cmd_to_waypoint   = cmpt_cmd(error_waypoint);
+  }
+  
   if (channels[6] < 1000) { 
     flight_mode = 8; 
   }
@@ -226,12 +262,38 @@ void motorised_auto() {
 
 void motorised_failSafe() { 
   
-  navigation();
+  if (new_cog) {
+    new_cog = false;
+    if (DEBUG) { Serial.println("New direction and command computed"); }  
+    setPoint_waypoint = cmpt_setpoint(gps.location.lat(), gps.location.lng(), where_to_go(gps.location.lat(), gps.location.lng())); 
+    error_waypoint    = cmpt_error(gps.course.deg(), setPoint_waypoint);
+    cmd_to_waypoint   = cmpt_cmd(error_waypoint);
+  }
    
   if (failsafe == false) { 
     flight_mode = 8; 
     myPID.SetMode(MANUAL); 
   }
+  
+
+  /* DANGEROUS: WOULD SET MOTOR TO MAX!!!
+  if (!gps_ok) {
+    flight_mode = 11;  
+    myPID.SetMode(MANUAL);
+  }
+  */
+
+  if (is_descent(v_down(-5), 1)) {
+    myPID.SetMode(MANUAL);
+    spiral = true; 
+    spiral_time = millis();
+  }
+
+  if (millis()-spiral_time>SPIRAL_RECOVER) {
+    spiral = false;
+    myPID.SetMode(AUTOMATIC);
+  }
+  
 }
 
 //------------------- 11 -------------------//
@@ -290,7 +352,7 @@ void cmpt_flight_state() {
     break;
 
     case 7: 
-      landed(); 
+      on_ground(); 
       setled(128, 0, 255, 25, 1000); 
     break;
 

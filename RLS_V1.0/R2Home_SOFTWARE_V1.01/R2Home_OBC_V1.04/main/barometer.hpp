@@ -5,7 +5,7 @@
 
 Watchdog watchdog; 
 
-Adafruit_BMP280 bmp(&Wire);
+Adafruit_BMP280 bmp(&BARO_PORT);
 int baro_adress = 0x00; 
 double baro_set  = 1000.0; 
 

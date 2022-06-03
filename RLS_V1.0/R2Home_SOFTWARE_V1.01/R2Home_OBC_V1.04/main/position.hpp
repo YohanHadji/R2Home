@@ -120,7 +120,6 @@ float v_down(int vdown) {
   return pressure_sqrt_ratio()*vdown;
 }
 
-
 String pos_text() {
   String merged_alt_text = String(merged_alt,3);  
   String gps_weight_text = String(gps_alt_weight,2);

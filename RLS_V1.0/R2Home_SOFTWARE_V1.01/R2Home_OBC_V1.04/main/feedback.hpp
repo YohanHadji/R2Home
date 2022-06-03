@@ -163,6 +163,9 @@ void buzzer_batt() {
 void update_buzzer() {
   sweep_beep_update();
   EasyBuzzer.update();
+  if (arming_error) {
+     EasyBuzzer.singleBeep(3000,200);
+  }
 }
 
 void led_setup() { 

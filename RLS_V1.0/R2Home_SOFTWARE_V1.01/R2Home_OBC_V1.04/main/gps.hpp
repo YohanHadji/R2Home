@@ -54,8 +54,6 @@ void get_gps() {
   }
 }
 
-
- 
 void sendPacket(byte *packet, byte len){
     for (byte i = 0; i < len; i++) { GPS_PORT.write(packet[i]); }
 }
@@ -161,7 +159,6 @@ String date_time() {
   return date_year+":"+date_month+":"+date_day+","+time_hour+":"+time_minute+":"+time_second; 
 }
 
-  
 String gps_text() {
   String lat_A_text   = String(gps.location.lat(), 10); 
   String lon_A_text   = String(gps.location.lng(), 10);

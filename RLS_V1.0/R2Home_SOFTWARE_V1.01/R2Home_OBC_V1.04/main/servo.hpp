@@ -1,9 +1,10 @@
 #include "config.h"
 #include "control.hpp"
 #include <PWMServo.h>
+#include <movingAvg.h>
 
 PWMServo steer;
-PWMServo deploy;
+PWMServo aux;
 PWMServo aux_deploy;
 PWMServo left; 
 PWMServo right; 
@@ -13,6 +14,9 @@ int servo_left  = 0;
 int servo_right = 0;
 int servo_aux   = 0; 
 int servo_aux_deploy = 0; 
+
+bool armed = false;
+bool arming_error = false;
 
 unsigned long tpwm = 0; 
  
@@ -26,17 +30,17 @@ struct servo_cmd {
 void servo_setup() {
   left.attach(6, 1000, 2000);  
   right.attach(7, 1000, 2000); 
-  if (DROP == true) { deploy.attach(8, 1000, 2000); } 
-  else              { esc.attach(8, 1000, 2000);    }
+  aux.attach(8, 1000, 2000); 
   aux_deploy.attach(9, 1000, 2000); 
+
 }
 
 servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool deployed, bool failsafe, bool cog_ok, bool spiral, bool separation) {
   
-  float roll  = map(channels[0], 67, 1982, 1000, 2000);
-  float pitch = map(channels[1], 67, 1982, 1000, 2000);
-  float aux =   map(channels[2], 67, 1982, 1000, 2000);
-  float sw =    map(channels[6], 67, 1982, 1000, 2000);
+  float roll  = map(channels[0], 172, 1811, 1000, 2000);
+  float pitch = map(channels[1], 172, 1811, 1000, 2000);
+  float aux =   map(channels[2], 365, 1681, 1000, 2000);
+  float sw =    map(channels[6], 172, 1811, 1000, 2000);
   
   roll  = constrain(roll, 1000, 2000); 
   pitch = constrain(pitch, 1000, 2000); 
@@ -49,6 +53,7 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
     case 0: 
     case 1: 
     case 6: 
+    case 7: 
     case 8: 
     // ---------- Stage 1 - RC mode ---------- // 
     switch (RC_MODE) {
@@ -93,6 +98,11 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
     steering_cmpt.right = 1500; 
     steering_cmpt.left = 1500; 
     break; 
+
+    case 4: 
+    steering_cmpt.right = 2000; 
+    steering_cmpt.left = 2000; 
+    break;
     
   }
 
@@ -138,10 +148,9 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
     case 1:
     case 2:
     case 3:
-    case 4:
     case 5: 
-    case 6:
-    case 7: 
+    case 4:
+    case 6: 
       // Deployment Servo
       if (deployed == true) { 
         steering_cmpt.aux = 1000; 
@@ -160,8 +169,15 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
       else {
         steering_cmpt.aux_deploy = 2000;
       }
+
+      if (!X_SERVO) {
+        steering_cmpt.aux_deploy = map(steering_cmpt.aux_deploy, 1000, 2000, 1500, 2000);
+        steering_cmpt.aux_deploy = constrain(steering_cmpt.aux_deploy, 1500, 2000); 
+        steering_cmpt.aux = min(steering_cmpt.aux, steering_cmpt.aux_deploy); 
+      }
     break; 
 
+    case 7: 
     case 8:
       steering_cmpt.aux = aux;
     break; 
@@ -172,10 +188,40 @@ servo_cmd cmpt_servo(uint16_t channels[16], int autopilot, int flight_mode, bool
      break; 
 
      case 11:
-      steering_cmpt.aux = 1000;
+      steering_cmpt.aux = 2000;
       steering_cmpt.aux_deploy = 2000;
      break;  
   } 
+
+  if (!DROP) {
+    switch (armed) {
+      case true:
+      if (channels[4] < 1000) {
+        armed = false;
+        arming_error = false;
+      }
+      break;
+  
+      case false: 
+      if (channels[4] > 1000 and aux >1001) {
+        arming_error = true; 
+      }
+      else if (channels[4] > 1000 and aux <=1001 and !arming_error and flight_mode !=0) {
+        armed = true; 
+        arming_error = false;
+      }
+      else if (channels[4] > 1000 and flight_mode ==0) {
+        arming_error = true;
+      }
+      if (channels[4] < 1000) {
+        arming_error = false; 
+      }
+    }
+  
+    if (!armed and !DROP) {
+      steering_cmpt.aux = 1000;
+    }
+  }
   
   servo_left = steering_cmpt.left; 
   servo_right = steering_cmpt.right; 
@@ -191,7 +237,7 @@ void update_servo_cmd(servo_cmd steering_apply, unsigned int a) {
     tpwm = millis(); 
     left.write(map(steering_apply.left, 1000, 2000, 0, 180));
     right.write(map(steering_apply.right, 1000, 2000, 0, 180)); 
-    deploy.write(map(steering_apply.aux, 1000, 2000, 0, 180));
+    aux.write(map(steering_apply.aux, 1000, 2000, 0, 180));
     aux_deploy.write(map(steering_apply.aux_deploy, 1000, 2000, 0, 180));
   }
  

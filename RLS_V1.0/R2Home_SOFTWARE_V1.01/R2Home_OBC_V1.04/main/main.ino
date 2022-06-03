@@ -7,9 +7,6 @@
 
 servo_cmd steering; 
 
-float setPoint_waypoint = 0; 
-float error_waypoint    = 0; 
-float cmd_to_waypoint   = 0;
 
 void setup() {
 
@@ -68,7 +65,7 @@ void loop() {
 
 void getdata() { 
  get_gps(); 
- get_baro(0); 
+ get_baro(0);
  get_rc(); 
  get_vbatt(); 
  
@@ -76,15 +73,7 @@ void getdata() {
 
 void datacmpt() {
 
-  cmpt_pressure_gain(pressure_sqrt_ratio()); 
-  
-  if (new_cog) {
-    new_cog = false;
-    if (DEBUG) { Serial.println("New direction and command computed"); }  
-    setPoint_waypoint = cmpt_setpoint(current_waypoint); 
-    error_waypoint    = cmpt_error(gps.course.deg(), setPoint_waypoint);
-    cmd_to_waypoint   = cmpt_cmd(error_waypoint);
-  }
+  cmpt_pressure_gain(pressure_sqrt_ratio());  
 
   if (I_WANT_TO_FLY) {
     cmd_to_waypoint = sim(); 

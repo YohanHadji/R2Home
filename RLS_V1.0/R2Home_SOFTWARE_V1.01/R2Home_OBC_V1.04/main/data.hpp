@@ -1,7 +1,6 @@
 #include <SD.h>
 #include "feedback.hpp"
 
-
 bool sd_ok = false; 
 unsigned int delaySD = 100;    // Datalog 
 unsigned int delayTLM = 1000;   // Tlm 
